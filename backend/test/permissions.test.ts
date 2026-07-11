@@ -1,0 +1,1 @@
+import { describe,it,expect } from "vitest";import { can } from "../src/core/permissions.js";describe("permissions",()=>{it("restricts settings to privileged roles",()=>{expect(can("superadmin","settings:write")).toBe(true);expect(can("developer","settings:write")).toBe(false)})})
