@@ -1,1 +1,54 @@
-import { useState } from "react";import type { Task } from "../../types";import { api } from "../../api/client";export function EditTask({task,onDone}:{task:Task;onDone:()=>void}){const[value,setValue]=useState(task);return <form onSubmit={async e=>{e.preventDefault();await api(`/tasks/${task._id}`,{method:"PATCH",body:JSON.stringify({...value,labels:value.labels})});onDone()}}><input value={value.title} onChange={e=>setValue({...value,title:e.target.value})}/><input value={value.assignee} onChange={e=>setValue({...value,assignee:e.target.value})} placeholder="Assignee"/><select value={value.priority} onChange={e=>setValue({...value,priority:e.target.value})}>{["low","medium","high","urgent"].map(x=><option key={x}>{x}</option>)}</select><input type="date" value={value.dueDate||""} onChange={e=>setValue({...value,dueDate:e.target.value})}/><input value={value.labels.join(",")} onChange={e=>setValue({...value,labels:e.target.value.split(",").map(x=>x.trim()).filter(Boolean)})}/><button>Save</button></form>}
+import { useState } from "react";
+import type { Task } from "../../types";
+import { api } from "../../api/client";
+export function EditTask({ task, onDone }: { task: Task; onDone: () => void }) {
+  const [value, setValue] = useState(task);
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await api(`/tasks/${task._id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ ...value, labels: value.labels }),
+        });
+        onDone();
+      }}
+    >
+      <input
+        value={value.title}
+        onChange={(e) => setValue({ ...value, title: e.target.value })}
+      />
+      <input
+        value={value.assignee}
+        onChange={(e) => setValue({ ...value, assignee: e.target.value })}
+        placeholder="Assignee"
+      />
+      <select
+        value={value.priority}
+        onChange={(e) => setValue({ ...value, priority: e.target.value })}
+      >
+        {["low", "medium", "high", "urgent"].map((x) => (
+          <option key={x}>{x}</option>
+        ))}
+      </select>
+      <input
+        type="date"
+        value={value.dueDate || ""}
+        onChange={(e) => setValue({ ...value, dueDate: e.target.value })}
+      />
+      <input
+        value={value.labels.join(",")}
+        onChange={(e) =>
+          setValue({
+            ...value,
+            labels: e.target.value
+              .split(",")
+              .map((x) => x.trim())
+              .filter(Boolean),
+          })
+        }
+      />
+      <button>Save</button>
+    </form>
+  );
+}

@@ -1,1 +1,14 @@
-import type { Task } from "../../types";export function TaskDashboard({tasks}:{tasks:Task[]}){const active=tasks.filter(t=>!["done","cancelled"].includes(t.status));return <section><strong>Total: {tasks.length}</strong><strong>Active: {active.length}</strong><strong>Needs changes: {tasks.filter(t=>t.status==="needs_changes").length}</strong></section>}
+import type { Task } from "../../types";
+export function TaskDashboard({ tasks }: { tasks: Task[] }) {
+  const active = tasks.filter((t) => !["done", "cancelled"].includes(t.status));
+  return (
+    <section>
+      <strong>Total: {tasks.length}</strong>
+      <strong>Active: {active.length}</strong>
+      <strong>
+        Needs changes:{" "}
+        {tasks.filter((t) => t.status === "needs_changes").length}
+      </strong>
+    </section>
+  );
+}

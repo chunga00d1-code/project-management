@@ -1,1 +1,12 @@
-export function hasPermission(role:string|undefined,permission:"settings"|"users"|"tasks"){const map:Record<string,string[]>={superadmin:["settings","users","tasks"],admin:["settings","users","tasks"],manager:["tasks"],developer:["tasks"]};return Boolean(role&&map[role]?.includes(permission))}
+export function hasPermission(
+  role: string | undefined,
+  permission: "settings" | "users" | "tasks",
+) {
+  const map: Record<string, string[]> = {
+    superadmin: ["settings", "users", "tasks"],
+    admin: ["settings", "users", "tasks"],
+    manager: ["tasks"],
+    developer: ["tasks"],
+  };
+  return Boolean(role && map[role]?.includes(permission));
+}

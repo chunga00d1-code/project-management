@@ -1,1 +1,55 @@
-import { useEffect,useState } from "react";import { api } from "../../api/client";type User={id:string;email:string;role:string;createdAt:string};export function Users(){const[users,setUsers]=useState<User[]>([]);const[email,setEmail]=useState("");const[password,setPassword]=useState("");const[role,setRole]=useState("developer");const load=()=>api<User[]>("/auth/users").then(setUsers);useEffect(()=>{void load()},[]);return <main><h2>Users</h2><form onSubmit={async e=>{e.preventDefault();await api("/auth/users",{method:"POST",body:JSON.stringify({email,password,role})});setEmail("");setPassword("");void load()}}><input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email"/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password"/><select value={role} onChange={e=>setRole(e.target.value)}>{["admin","manager","developer"].map(x=><option key={x}>{x}</option>)}</select><button>Create user</button></form><ul>{users.map(user=><li key={user.id}>{user.email} — {user.role}</li>)}</ul></main>}
+import { useEffect, useState } from "react";
+import { api } from "../../api/client";
+type User = { id: string; email: string; role: string; createdAt: string };
+export function Users() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("developer");
+  const load = () => api<User[]>("/auth/users").then(setUsers);
+  useEffect(() => {
+    void load();
+  }, []);
+  return (
+    <main>
+      <h2>Users</h2>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await api("/auth/users", {
+            method: "POST",
+            body: JSON.stringify({ email, password, role }),
+          });
+          setEmail("");
+          setPassword("");
+          void load();
+        }}
+      >
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+        />
+        <select value={role} onChange={(e) => setRole(e.target.value)}>
+          {["admin", "manager", "developer"].map((x) => (
+            <option key={x}>{x}</option>
+          ))}
+        </select>
+        <button>Create user</button>
+      </form>
+      <ul>
+        {users.map((user) => (
+          <li key={user.id}>
+            {user.email} â€¢ {user.role}
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}

@@ -1,1 +1,13 @@
-import { useEffect,useState } from "react";export function useAsync<T>(load:()=>Promise<T>,deps:unknown[]=[]){const [data,setData]=useState<T>();const [error,setError]=useState<string>();const refresh=()=>load().then(setData).catch(e=>setError(e.message));useEffect(()=>{void refresh()},deps);return{data,error,refresh}}
+import { useEffect, useState } from "react";
+export function useAsync<T>(load: () => Promise<T>, deps: unknown[] = []) {
+  const [data, setData] = useState<T>();
+  const [error, setError] = useState<string>();
+  const refresh = () =>
+    load()
+      .then(setData)
+      .catch((e) => setError(e.message));
+  useEffect(() => {
+    void refresh();
+  }, deps);
+  return { data, error, refresh };
+}

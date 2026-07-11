@@ -1,4 +1,29 @@
-import type { RequestHandler } from "express"; import jwt from "jsonwebtoken"; import { env } from "../config/env.js";
-export type Role="superadmin"|"admin"|"manager"|"developer"; export interface AuthRequest extends Express.Request{user?:{id:string;email:string;role:Role}}
-export const authenticate:RequestHandler=(req,res,next)=>{try{const token=req.header("authorization")?.replace(/^Bearer\s+/i,"");if(!token)return res.status(401).json({error:"Authentication required"});(req as AuthRequest).user=jwt.verify(token,env.jwtSecret) as AuthRequest["user"];next();}catch{return res.status(401).json({error:"Invalid token"});}};
-export const authorize=(...roles:Role[]):RequestHandler=>(req,res,next)=>{const user=(req as AuthRequest).user;if(!user||!roles.includes(user.role))return res.status(403).json({error:"Insufficient role"});next();};
+import type { RequestHandler } from "express";
+import jwt from "jsonwebtoken";
+import { env } from "../config/env.js";
+export type Role = "superadmin" | "admin" | "manager" | "developer";
+export interface AuthRequest extends Express.Request {
+  user?: { id: string; email: string; role: Role };
+}
+export const authenticate: RequestHandler = (req, res, next) => {
+  try {
+    const token = req.header("authorization")?.replace(/^Bearer\s+/i, "");
+    if (!token)
+      return res.status(401).json({ error: "Authentication required" });
+    (req as AuthRequest).user = jwt.verify(
+      token,
+      env.jwtSecret,
+    ) as AuthRequest["user"];
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+};
+export const authorize =
+  (...roles: Role[]): RequestHandler =>
+  (req, res, next) => {
+    const user = (req as AuthRequest).user;
+    if (!user || !roles.includes(user.role))
+      return res.status(403).json({ error: "Insufficient role" });
+    next();
+  };

@@ -1,1 +1,57 @@
-import nodemailer from "nodemailer";import { env } from "../../config/env.js";import type { RuntimeSettings } from "../settings/settings.service.js";import type { Finding } from "../reviews/review.service.js";export async function notifyReview(repository:string,number:number,url:string,findings:Finding[],settings:RuntimeSettings={}){const text=`PR ${repository} #${number}\n${url}\n${findings.map(f=>`[${f.severity}] ${f.file}: ${f.message}`).join("\n")||"No findings"}`;const jobs:Promise<unknown>[]=[];if((settings.telegramToken||env.telegramToken)&&(settings.telegramChatId||env.telegramChatId))jobs.push(fetch(`https://api.telegram.org/bot${(settings.telegramToken||env.telegramToken)}/sendMessage`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:(settings.telegramChatId||env.telegramChatId),text})}));if((settings.smtpHost||env.smtpHost)&&(settings.emailFrom||env.emailFrom)&&(settings.emailTo||env.emailTo))jobs.push(nodemailer.createTransport({host:(settings.smtpHost||env.smtpHost),port:(settings.smtpPort||env.smtpPort),auth:(settings.smtpUser||env.smtpUser)?{user:(settings.smtpUser||env.smtpUser),pass:(settings.smtpPassword||env.smtpPassword)}:undefined}).sendMail({from:(settings.emailFrom||env.emailFrom),to:(settings.emailTo||env.emailTo),subject:`PR review ${repository} #${number}`,text}));await Promise.all(jobs)}
+import nodemailer from "nodemailer";
+import { env } from "../../config/env.js";
+import type { RuntimeSettings } from "../settings/settings.service.js";
+import type { Finding } from "../reviews/review.service.js";
+export async function notifyReview(
+  repository: string,
+  number: number,
+  url: string,
+  findings: Finding[],
+  settings: RuntimeSettings = {},
+) {
+  const text = `PR ${repository} #${number}\n${url}\n${findings.map((f) => `[${f.severity}] ${f.file}: ${f.message}`).join("\n") || "No findings"}`;
+  const jobs: Promise<unknown>[] = [];
+  if (
+    (settings.telegramToken || env.telegramToken) &&
+    (settings.telegramChatId || env.telegramChatId)
+  )
+    jobs.push(
+      fetch(
+        `https://api.telegram.org/bot${settings.telegramToken || env.telegramToken}/sendMessage`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            chat_id: settings.telegramChatId || env.telegramChatId,
+            text,
+          }),
+        },
+      ),
+    );
+  if (
+    (settings.smtpHost || env.smtpHost) &&
+    (settings.emailFrom || env.emailFrom) &&
+    (settings.emailTo || env.emailTo)
+  )
+    jobs.push(
+      nodemailer
+        .createTransport({
+          host: settings.smtpHost || env.smtpHost,
+          port: settings.smtpPort || env.smtpPort,
+          auth:
+            settings.smtpUser || env.smtpUser
+              ? {
+                  user: settings.smtpUser || env.smtpUser,
+                  pass: settings.smtpPassword || env.smtpPassword,
+                }
+              : undefined,
+        })
+        .sendMail({
+          from: settings.emailFrom || env.emailFrom,
+          to: settings.emailTo || env.emailTo,
+          subject: `PR review ${repository} #${number}`,
+          text,
+        }),
+    );
+  await Promise.all(jobs);
+}
