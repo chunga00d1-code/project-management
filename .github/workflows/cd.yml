@@ -132,4 +132,14 @@ jobs:
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f
-            docker compose exec -T github-pr-webhook wget -qO- http://127.0.0.1:3000/health
+            for i in $(seq 1 30); do
+              if docker compose exec -T github-pr-webhook wget -qO- http://127.0.0.1:3000/health 2>/dev/null; then
+                echo "Health check passed"
+                exit 0
+              fi
+              echo "Waiting for service to be healthy ($i/30)..."
+              sleep 2
+            done
+            echo "Health check failed after 60s, container logs:"
+            docker compose logs --tail=100 github-pr-webhook
+            exit 1
