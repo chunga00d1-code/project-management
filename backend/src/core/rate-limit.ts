@@ -1,0 +1,2 @@
+import type { RequestHandler } from "express";
+export function rateLimiter(opts:{windowMs:number;max:number;keyPrefix:string}):RequestHandler{const hits=new Map<string,{count:number;reset:number}>();return (req,res,next)=>{const key=`${opts.keyPrefix}:${req.ip||"unknown"}`;const now=Date.now();const entry=hits.get(key);const current=!entry||entry.reset<now?{count:0,reset:now+opts.windowMs}:entry;current.count+=1;hits.set(key,current);if(current.count>opts.max)return res.status(429).json({error:"Too many requests"});next();};}
