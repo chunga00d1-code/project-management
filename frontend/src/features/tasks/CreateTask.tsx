@@ -1,52 +1,9 @@
-import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import type { Project } from "../auth/Projects";
 export function CreateTask({ onCreated }: { onCreated: () => void }) {
-  const [title, setTitle] = useState("");
-  const [priority, setPriority] = useState("medium");
-  const [dueDate, setDueDate] = useState("");
-  const [labels, setLabels] = useState("");
-  return (
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        await api("/tasks", {
-          method: "POST",
-          body: JSON.stringify({
-            title,
-            priority,
-            dueDate,
-            labels: labels
-              .split(",")
-              .map((x) => x.trim())
-              .filter(Boolean),
-          }),
-        });
-        setTitle("");
-        onCreated();
-      }}
-    >
-      <input
-        required
-        placeholder="New task"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
-      <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-        {["low", "medium", "high", "urgent"].map((x) => (
-          <option key={x}>{x}</option>
-        ))}
-      </select>
-      <input
-        type="date"
-        value={dueDate}
-        onChange={(e) => setDueDate(e.target.value)}
-      />
-      <input
-        placeholder="labels, separated"
-        value={labels}
-        onChange={(e) => setLabels(e.target.value)}
-      />
-      <button>Create</button>
-    </form>
-  );
+  const [title, setTitle] = useState(""); const [priority, setPriority] = useState("medium"); const [dueDate, setDueDate] = useState(""); const [labels, setLabels] = useState(""); const [projects, setProjects] = useState<Project[]>([]); const [projectId, setProjectId] = useState(""); const [sprint, setSprint] = useState(""); const [team, setTeam] = useState("");
+  useEffect(() => { void api<Project[]>("/projects").then((items) => { setProjects(items); if (items.length) setProjectId((current) => current || items[0]._id); }); }, []);
+  const project = projects.find((item) => item._id === projectId);
+  return <form onSubmit={async (e) => { e.preventDefault(); await api("/tasks", { method: "POST", body: JSON.stringify({ title, priority, dueDate: dueDate || undefined, projectId: project?._id, project: project?.name || "", sprint, team: team || project?.team || "", labels: labels.split(",").map((x) => x.trim()).filter(Boolean) }) }); setTitle(""); onCreated(); }}><input required placeholder="New task" value={title} onChange={(e) => setTitle(e.target.value)} /><select required value={projectId} onChange={(e) => setProjectId(e.target.value)}><option value="">Select project</option>{projects.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}</select><select value={priority} onChange={(e) => setPriority(e.target.value)}>{["low", "medium", "high", "urgent"].map((x) => <option key={x}>{x}</option>)}</select><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /><input placeholder="Sprint" value={sprint} onChange={(e) => setSprint(e.target.value)} /><input placeholder="Team override" value={team} onChange={(e) => setTeam(e.target.value)} /><input placeholder="labels, separated" value={labels} onChange={(e) => setLabels(e.target.value)} /><button disabled={!projectId}>Create</button></form>;
 }

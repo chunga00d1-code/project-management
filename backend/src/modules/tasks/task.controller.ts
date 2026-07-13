@@ -1,58 +1,23 @@
-import type { Request, Response, NextFunction } from "express";
+﻿import type { Request, Response, NextFunction } from "express";
+import { audit } from "../../core/audit.service.js";
+import { taskInput, text, ValidationError } from "../../core/validation.js";
+import { ProjectService } from "../projects/project.service.js";
 import { TaskService } from "./task.service.js";
 import type { AuthRequest } from "../../core/auth.js";
-const tasks = new TaskService();
+const tasks = new TaskService(); const projects = new ProjectService();
+const auth = (req: Request) => (req as AuthRequest).user!;
+const isAdmin = (req: Request) => ["superadmin", "admin"].includes(auth(req).role);
+async function visibleTasks(req: Request) { const all = await tasks.list(); if (isAdmin(req)) return all; const ids = new Set((await projects.list(auth(req).email, false)).map((project) => project._id)); return all.filter((task) => Boolean(task.projectId && ids.has(task.projectId))); }
 export const taskController = {
-  dashboard: async (_req: Request, res: Response, next: NextFunction) => {
-    try {
-      res.json(await tasks.dashboard());
-    } catch (error) {
-      next(error);
-    }
-  },
-  list: async (_req: Request, res: Response, next: NextFunction) => {
-    try {
-      res.json(await tasks.list());
-    } catch (error) {
-      next(error);
-    }
-  },
-  create: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      res.status(201).json(await tasks.create(req.body));
-    } catch (error) {
-      next(error);
-    }
-  },
-  update: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const task = await tasks.update(String(req.params.id), req.body);
-      if (!task) return res.status(404).json({ error: "Task not found" });
-      return res.json(task);
-    } catch (error) {
-      return next(error);
-    }
-  },
-  remove: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      if (!(await tasks.remove(String(req.params.id))))
-        return res.status(404).json({ error: "Task not found" });
-      return res.status(204).end();
-    } catch (error) {
-      return next(error);
-    }
-  },
-  comment: async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const comment = await tasks.addComment(
-        String(req.params.id),
-        String(req.body.text || ""),
-        (req as AuthRequest).user?.email || "system",
-      );
-      if (!comment) return res.status(404).json({ error: "Task not found" });
-      return res.status(201).json(comment);
-    } catch (error) {
-      return next(error);
-    }
-  },
+  dashboard: async (req: Request, res: Response, next: NextFunction) => { try { const items = await visibleTasks(req); const active = items.filter((task) => !["done", "cancelled"].includes(task.status)); const completed = new Set(items.filter((task) => task.status === "done").map((task) => task._id)); const blocked = active.filter((task) => (task.dependencies || []).some((id) => !completed.has(id))).length; res.json({ total: items.length, active: active.length, needsChanges: items.filter((task) => task.status === "needs_changes").length, blocked, overdue: active.filter((task) => Boolean(task.dueDate && task.dueDate < new Date().toISOString().slice(0, 10))).length, byRepository: Object.entries(items.reduce<Record<string, number>>((all, task) => { const key = task.repository || "unlinked"; all[key] = (all[key] || 0) + 1; return all; }, {})).map(([repository, count]) => ({ repository, count })), byProject: Object.entries(items.reduce<Record<string, number>>((all, task) => { const key = task.project || "unassigned"; all[key] = (all[key] || 0) + 1; return all; }, {})).map(([project, count]) => ({ project, count })), byAssignee: Object.entries(active.reduce<Record<string, number>>((all, task) => { const key = task.assignee || "unassigned"; all[key] = (all[key] || 0) + 1; return all; }, {})).map(([assignee, count]) => ({ assignee, count })) }); } catch (error) { next(error); } },
+  list: async (req: Request, res: Response, next: NextFunction) => { try { res.json(await visibleTasks(req)); } catch (error) { next(error); } },
+  search: async (req: Request, res: Response, next: NextFunction) => { try { const page = Math.max(1, Number(req.query.page) || 1); const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30)); const pick = (key: string) => typeof req.query[key] === "string" ? req.query[key] : undefined; const all = await visibleTasks(req); const q = pick("q")?.toLowerCase(); const filtered = all.filter((task) => (!q || `${task.title} ${task.description}`.toLowerCase().includes(q)) && (!pick("status") || task.status === pick("status")) && (!pick("priority") || task.priority === pick("priority")) && (!pick("project") || task.project === pick("project")) && (!pick("assignee") || task.assignee === pick("assignee"))); res.json({ items: filtered.slice((page - 1) * limit, page * limit), total: filtered.length, page, pages: Math.ceil(filtered.length / limit) }); } catch (error) { next(error); } },
+  create: async (req: Request, res: Response, next: NextFunction) => { try { const input = taskInput(req.body, "create"); const user = auth(req); if (user.role === "manager" && (!input.projectId || !(await projects.memberRole(input.projectId, user.email)))) return res.status(403).json({ error: "Project membership required" }); const task = await tasks.create(input); await audit({ actor: user.email, action: "task.create", target: task._id }); res.status(201).json(task); } catch (error) { if (error instanceof ValidationError) return res.status(400).json({ error: error.message }); next(error); } },
+  update: async (req: Request, res: Response, next: NextFunction) => { try { const task = await tasks.update(String(req.params.id), taskInput(req.body, "update")); if (!task) return res.status(404).json({ error: "Task not found" }); await audit({ actor: auth(req).email, action: "task.update", target: task._id }); res.json(task); } catch (error) { if (error instanceof ValidationError) return res.status(400).json({ error: error.message }); next(error); } },
+  updateStatus: async (req: Request, res: Response, next: NextFunction) => { try { const input = taskInput(req.body, "update"); if (!input.status || Object.keys(input).length !== 1) return res.status(400).json({ error: "Only status may be updated" }); if (["ready", "done"].includes(input.status)) { const blockers = await tasks.completionBlockers(String(req.params.id)); if (!blockers) return res.status(404).json({ error: "Task not found" }); if (blockers.blockingDependencies.length || (input.status === "done" && blockers.incompleteChecklist.length)) return res.status(409).json({ error: "Task is blocked", blockingDependencies: blockers.blockingDependencies, incompleteChecklist: blockers.incompleteChecklist.map((item) => item.id) }); } const task = await tasks.update(String(req.params.id), { status: input.status }); if (!task) return res.status(404).json({ error: "Task not found" }); await audit({ actor: auth(req).email, action: "task.status", target: task._id, metadata: { status: task.status } }); res.json(task); } catch (error) { if (error instanceof ValidationError) return res.status(400).json({ error: error.message }); next(error); } },
+  remove: async (req: Request, res: Response, next: NextFunction) => { try { const id = String(req.params.id); if (!(await tasks.remove(id))) return res.status(404).json({ error: "Task not found" }); await audit({ actor: auth(req).email, action: "task.delete", target: id }); res.status(204).end(); } catch (error) { next(error); } },
+  comment: async (req: Request, res: Response, next: NextFunction) => { try { const comment = await tasks.addComment(String(req.params.id), text(req.body?.text, "comment", 5000, true) || "", auth(req).email); if (!comment) return res.status(404).json({ error: "Task not found" }); await audit({ actor: auth(req).email, action: "task.comment", target: String(req.params.id) }); res.status(201).json(comment); } catch (error) { if (error instanceof ValidationError) return res.status(400).json({ error: error.message }); next(error); } },
 };
+
+
+

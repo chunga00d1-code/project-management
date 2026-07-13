@@ -1,49 +1,9 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { api } from "../../api/client";
 import type { Task } from "../../types";
 import { EditTask } from "./EditTask";
-export function TaskDetail({
-  task,
-  onClose,
-  onChange,
-}: {
-  task: Task;
-  onClose: () => void;
-  onChange: () => void;
-}) {
-  const [text, setText] = useState("");
-  return (
-    <dialog open>
-      <h2>{task.title}</h2>
-      <p>{task.description}</p>
-      <EditTask task={task} onDone={onChange} />
-      <h3>Comments</h3>
-      <ul>
-        {task.comments.map((c) => (
-          <li key={c.id}>
-            <b>{c.author}</b>: {c.text}
-          </li>
-        ))}
-      </ul>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          await api(`/tasks/${task._id}/comments`, {
-            method: "POST",
-            body: JSON.stringify({ text }),
-          });
-          setText("");
-          onChange();
-        }}
-      >
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Write a comment"
-        />
-        <button>Comment</button>
-      </form>
-      <button onClick={onClose}>Close</button>
-    </dialog>
-  );
+export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: () => void; onChange: () => void }) {
+  const [text, setText] = useState(""); const [itemText, setItemText] = useState("");
+  const changed = () => { onChange(); };
+  return <dialog open><h2>{task.title}</h2><p>{task.description}</p><EditTask task={task} onDone={changed} /><h3>Checklist</h3><ul>{(task.checklist || []).map((item) => <li key={item.id}><label><input type="checkbox" checked={item.done} onChange={async (e) => { await api(`/tasks/${task._id}/checklist/${item.id}`, { method: "PATCH", body: JSON.stringify({ done: e.target.checked }) }); changed(); }} /> {item.text}</label></li>)}</ul><form onSubmit={async (e) => { e.preventDefault(); await api(`/tasks/${task._id}/checklist`, { method: "POST", body: JSON.stringify({ text: itemText }) }); setItemText(""); changed(); }}><input required maxLength={500} value={itemText} onChange={(e) => setItemText(e.target.value)} placeholder="Add checklist item" /><button>Add item</button></form><h3>Relations</h3><p>Dependencies: {(task.dependencies || []).join(", ") || "None"}</p><p>Watchers: {(task.watchers || []).join(", ") || "None"}</p><h3>Comments</h3><ul>{task.comments.map((comment) => <li key={comment.id}><b>{comment.author}</b>: {comment.text}</li>)}</ul><form onSubmit={async (e) => { e.preventDefault(); await api(`/tasks/${task._id}/comments`, { method: "POST", body: JSON.stringify({ text }) }); setText(""); changed(); }}><textarea required maxLength={5000} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a comment" /><button>Comment</button></form><button onClick={onClose}>Close</button></dialog>;
 }

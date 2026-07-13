@@ -1,0 +1,11 @@
+﻿import { Router } from "express";
+import { ObjectId } from "mongodb";
+import { authenticate, authorize, AuthRequest } from "../../core/auth.js";
+import { audit } from "../../core/audit.service.js";
+import { database } from "../../core/database.js";
+import { retryQueue, type RetryJob } from "../jobs/retry-queue.service.js";
+export const operationsRouter = Router();
+operationsRouter.use(authenticate, authorize("superadmin", "admin"));
+operationsRouter.get("/audit", async (req, res, next) => { try { const page = Math.max(1, Number(req.query.page) || 1); const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30)); const col = (await database()).collection("audit_logs"); const [items, total] = await Promise.all([col.find().sort({ at: -1 }).skip((page - 1) * limit).limit(limit).toArray(), col.countDocuments()]); res.json({ items, total, page, pages: Math.ceil(total / limit) }); } catch (error) { next(error); } });
+operationsRouter.get("/dead-letter", async (_req, res, next) => { try { res.json(await (await database()).collection("github_pr_dead_letter_jobs").find().sort({ failedAt: -1 }).limit(100).toArray()); } catch (error) { next(error); } });
+operationsRouter.post("/dead-letter/:id/retry", async (req, res, next) => { try { if (!ObjectId.isValid(String(req.params.id))) return res.status(400).json({ error: "Invalid job id" }); const col = (await database()).collection<RetryJob>("github_pr_dead_letter_jobs"); const job = await col.findOne({ _id: new ObjectId(String(req.params.id)) } as never); if (!job) return res.status(404).json({ error: "Job not found" }); await retryQueue.enqueue(job.type, job.payload); await col.deleteOne({ _id: job._id }); await audit({ actor: (req as AuthRequest).user?.email, action: "dead_letter.retry", target: String(job._id) }); res.status(202).json({ queued: true }); } catch (error) { next(error); } });

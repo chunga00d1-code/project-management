@@ -1,58 +1,14 @@
-import "dotenv/config";
-const csv = (value: string | undefined, defaults: string[] = []) =>
-  value
-    ? value
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean)
-    : defaults;
+﻿import "dotenv/config";
+const csv = (value: string | undefined, defaults: string[] = []) => value ? value.split(",").map((x) => x.trim()).filter(Boolean) : defaults;
 export const env = {
-  port: Number(process.env.PORT || 3000),
-  mongoUri: process.env.MONGODB_URI || "",
-  mongoUser: process.env.MONGODB_USER || "",
-  mongoPassword: process.env.MONGODB_PASSWORD || "",
-  mongoAuthSource: process.env.MONGODB_AUTH_SOURCE || "admin",
-  jwtSecret: process.env.JWT_SECRET || "",
-  superadminEmail: process.env.SUPERADMIN_EMAIL || "",
-  superadminPassword:
-    process.env.SUPADMIN_PASSWORD || process.env.SUPERADMIN_PASSWORD || "",
-  githubWebhookSecret: process.env.GITHUB_WEBHOOK_SECRET || "",
-  githubApiToken: process.env.GITHUB_API_TOKEN || "",
-  prActions: csv(process.env.PULL_REQUEST_ACTIONS, [
-    "opened",
-    "reopened",
-    "synchronize",
-    "closed",
-  ]),
-  allowedRepositories: csv(process.env.ALLOWED_REPOSITORIES),
-  llmEnabled: process.env.LLM_REVIEW_ENABLED === "true",
-  llmUrl:
-    (process.env.FREELLM_API_URL || process.env.LLM_API_URL || "").replace(
-      /\/$/,
-      "",
-    ) +
-    (process.env.FREELLM_API_URL || process.env.LLM_API_URL
-      ? "/chat/completions"
-      : ""),
-  llmKey: process.env.FREELLM_API_KEY || process.env.LLM_API_KEY || "",
-  llmModel: process.env.FREELLM_API_MODEL || process.env.LLM_MODEL || "",
-  telegramToken: process.env.TELEGRAM_BOT_TOKEN || "",
-  telegramChatId: process.env.TELEGRAM_CHAT_ID || "",
-  smtpHost: process.env.SMTP_HOST || "",
-  smtpPort: Number(process.env.SMTP_PORT || 587),
-  smtpUser: process.env.SMTP_USER || "",
-  smtpPassword: process.env.SMTP_PASSWORD || "",
-  emailFrom: process.env.EMAIL_FROM || "",
-  emailTo: process.env.EMAIL_TO || "",
+  nodeEnv: process.env.NODE_ENV || "development",
+  logLevel: process.env.LOG_LEVEL || "info",
+  logFile: process.env.LOG_FILE || "",
+  logMaxSize: Number(process.env.LOG_MAX_SIZE || 10485760),
+  logMaxFiles: Number(process.env.LOG_MAX_FILES || 5),
+  redisUrl: process.env.REDIS_URL || "",
+  port: Number(process.env.PORT || 3000), mongoUri: process.env.MONGODB_URI || "", mongoUser: process.env.MONGODB_USER || "", mongoPassword: process.env.MONGODB_PASSWORD || "", mongoAuthSource: process.env.MONGODB_AUTH_SOURCE || "admin", jwtSecret: process.env.JWT_SECRET || "", superadminEmail: process.env.SUPERADMIN_EMAIL || "", superadminPassword: process.env.SUPADMIN_PASSWORD || process.env.SUPERADMIN_PASSWORD || "", githubWebhookSecret: process.env.GITHUB_WEBHOOK_SECRET || "", githubApiToken: process.env.GITHUB_API_TOKEN || "",
+  prActions: csv(process.env.PULL_REQUEST_ACTIONS, ["opened", "reopened", "synchronize", "closed"]), allowedRepositories: csv(process.env.ALLOWED_REPOSITORIES), llmEnabled: process.env.LLM_REVIEW_ENABLED === "true", llmUrl: (process.env.FREELLM_API_URL || process.env.LLM_API_URL || "").replace(/\/$/, "") + (process.env.FREELLM_API_URL || process.env.LLM_API_URL ? "/chat/completions" : ""), llmKey: process.env.FREELLM_API_KEY || process.env.LLM_API_KEY || "", llmModel: process.env.FREELLM_API_MODEL || process.env.LLM_MODEL || "", telegramToken: process.env.TELEGRAM_BOT_TOKEN || "", telegramChatId: process.env.TELEGRAM_CHAT_ID || "", smtpHost: process.env.SMTP_HOST || "", smtpPort: Number(process.env.SMTP_PORT || 587), smtpUser: process.env.SMTP_USER || "", smtpPassword: process.env.SMTP_PASSWORD || "", emailFrom: process.env.EMAIL_FROM || "", emailTo: process.env.EMAIL_TO || "",
 };
-export function validateEnv() {
-  if (
-    !env.mongoUri ||
-    !env.jwtSecret ||
-    !env.superadminEmail ||
-    !env.superadminPassword
-  )
-    throw new Error(
-      "MONGODB_URI, JWT_SECRET, SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD are required",
-    );
-}
+export function validateEnv() { if (!env.mongoUri || !env.jwtSecret || !env.superadminEmail || !env.superadminPassword) throw new Error("MONGODB_URI, JWT_SECRET, SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD are required"); if (!Number.isFinite(env.logMaxSize) || env.logMaxSize < 1024 || !Number.isInteger(env.logMaxFiles) || env.logMaxFiles < 1) throw new Error("LOG_MAX_SIZE and LOG_MAX_FILES are invalid"); }
+

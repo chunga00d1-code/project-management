@@ -1,27 +1,21 @@
-import { Router } from "express";
-import { authenticate, authorize } from "../../core/auth.js";
+﻿import { Router } from "express";
+import { authenticate, type AuthRequest } from "../../core/auth.js";
+import { audit } from "../../core/audit.service.js";
+import { text, ValidationError } from "../../core/validation.js";
+import { TaskService } from "./task.service.js";
+import { ProjectService, type ProjectRole } from "../projects/project.service.js";
 import { taskController } from "./task.controller.js";
-export const taskRouter = Router();
-taskRouter.use(authenticate);
-taskRouter.get("/dashboard", taskController.dashboard);
-taskRouter.get("/", taskController.list);
-taskRouter.post(
-  "/",
-  authorize("superadmin", "admin", "manager"),
-  taskController.create,
-);
-taskRouter.patch(
-  "/:id",
-  authorize("superadmin", "admin", "manager", "developer"),
-  taskController.update,
-);
-taskRouter.delete(
-  "/:id",
-  authorize("superadmin", "admin", "manager"),
-  taskController.remove,
-);
-taskRouter.post(
-  "/:id/comments",
-  authorize("superadmin", "admin", "manager", "developer"),
-  taskController.comment,
-);
+const tasks = new TaskService(); const projects = new ProjectService();
+type ProjectRequest = AuthRequest & { projectRole?: ProjectRole };
+const globalAdmin = (req: import("express").Request) => ["superadmin", "admin"].includes((req as AuthRequest).user!.role);
+async function taskAccess(req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) { try { if (globalAdmin(req)) return next(); const user = (req as AuthRequest).user!; const task = await tasks.find(String(req.params.id)); if (!task) return res.status(404).json({ error: "Task not found" }); if (!task.projectId) return res.status(403).json({ error: "Project membership required" }); const role = await projects.memberRole(task.projectId, user.email); if (!role) return res.status(403).json({ error: "Project membership required" }); (req as ProjectRequest).projectRole = role; next(); } catch (error) { next(error); } }
+const projectAuthorize = (...roles: ProjectRole[]) => (req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) => { if (globalAdmin(req) || roles.includes((req as ProjectRequest).projectRole!)) return next(); return res.status(403).json({ error: "Insufficient project role" }); };
+async function createAuthorize(req: import("express").Request, res: import("express").Response, next: import("express").NextFunction) { try { if (globalAdmin(req)) return next(); const projectId = typeof req.body?.projectId === "string" ? req.body.projectId : ""; const role = projectId ? await projects.memberRole(projectId, (req as AuthRequest).user!.email) : undefined; if (!role || !["owner", "manager"].includes(role)) return res.status(403).json({ error: "Project owner or manager role required" }); next(); } catch (error) { next(error); } }
+const strings = (value: unknown, name: string, max = 50) => { if (!Array.isArray(value) || value.length > max || value.some((item) => typeof item !== "string" || !item.trim() || item.length > 254)) throw new ValidationError(`Invalid ${name}`); return [...new Set(value.map((item) => item.trim()))]; };
+export const taskRouter = Router(); taskRouter.use(authenticate);
+taskRouter.get("/dashboard", taskController.dashboard); taskRouter.get("/search", taskController.search); taskRouter.get("/", taskController.list); taskRouter.post("/", createAuthorize, taskController.create);
+taskRouter.use("/:id", taskAccess);
+taskRouter.post("/:id/checklist", projectAuthorize("owner", "manager", "member"), async (req, res, next) => { try { const item = await tasks.addChecklistItem(String(req.params.id), text(req.body?.text, "checklist text", 500, true) || ""); if (!item) return res.status(404).json({ error: "Task not found" }); await audit({ actor: (req as AuthRequest).user?.email, action: "task.checklist.add", target: String(req.params.id), metadata: { itemId: item.id } }); res.status(201).json(item); } catch (error) { if (error instanceof ValidationError) return res.status(400).json({ error: error.message }); next(error); } });
+taskRouter.patch("/:id/checklist/:itemId", projectAuthorize("owner", "manager", "member"), async (req, res, next) => { try { if (typeof req.body?.done !== "boolean") return res.status(400).json({ error: "Invalid checklist state" }); if (!(await tasks.setChecklistItem(String(req.params.id), String(req.params.itemId), req.body.done))) return res.status(404).json({ error: "Checklist item not found" }); await audit({ actor: (req as AuthRequest).user?.email, action: "task.checklist.update", target: String(req.params.id), metadata: { itemId: req.params.itemId, done: req.body.done } }); res.status(204).end(); } catch (error) { next(error); } });
+taskRouter.put("/:id/relations", projectAuthorize("owner", "manager"), async (req, res, next) => { try { const dependencies = strings(req.body?.dependencies || [], "dependencies", 100); if (dependencies.includes(String(req.params.id))) return res.status(400).json({ error: "Task cannot depend on itself" }); const watchers = strings(req.body?.watchers || [], "watchers"); if (watchers.some((email) => !/^\S+@\S+\.\S+$/.test(email))) return res.status(400).json({ error: "Invalid watcher email" }); const task = await tasks.setRelations(String(req.params.id), { dependencies, watchers }); if (!task) return res.status(404).json({ error: "Task not found" }); await audit({ actor: (req as AuthRequest).user?.email, action: "task.relations.update", target: task._id }); res.json(task); } catch (error) { if (error instanceof ValidationError) return res.status(400).json({ error: error.message }); next(error); } });
+taskRouter.patch("/:id/status", projectAuthorize("owner", "manager", "member"), taskController.updateStatus); taskRouter.patch("/:id", projectAuthorize("owner", "manager"), taskController.update); taskRouter.delete("/:id", projectAuthorize("owner", "manager"), taskController.remove); taskRouter.post("/:id/comments", projectAuthorize("owner", "manager", "member"), taskController.comment);

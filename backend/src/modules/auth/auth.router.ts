@@ -1,62 +1,24 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../../config/env.js";
-import { authenticate, authorize, AuthRequest, Role } from "../../core/auth.js";
+import { authenticate, authorize, type AuthRequest, type Role } from "../../core/auth.js";
+import { audit } from "../../core/audit.service.js";
+import { consumeRateLimit } from "../../core/rate-limit.js";
+import { object, text, userInput, ValidationError } from "../../core/validation.js";
 import { UserService } from "../users/user.service.js";
-const users = new UserService();
+import { SessionService } from "./session.service.js";
+const users = new UserService(); const sessions = new SessionService();
+const refreshCookie = "igen_refresh";
+const cookieOptions = { httpOnly: true, secure: env.nodeEnv === "production", sameSite: "strict" as const, path: "/api/auth", maxAge: 30 * 86400000 };
+const readCookie = (req: import("express").Request) => req.header("cookie")?.split(";").map((item) => item.trim().split("=")).find(([key]) => key === refreshCookie)?.[1];
+const signAccess = (user: { _id: string; email: string; role: Role; tokenVersion?: number }) => jwt.sign({ id: user._id, email: user.email, role: user.role, tokenVersion: user.tokenVersion || 0 }, env.jwtSecret, { expiresIn: "15m", issuer: "igen-pr-platform", audience: "igen-web" });
+async function loginLimit(req: import("express").Request, res: import("express").Response) { const result = await consumeRateLimit(`login:${req.ip || "unknown"}`, 10, 15 * 60); res.setHeader("x-ratelimit-remaining", result.remaining); if (!result.allowed) { res.setHeader("retry-after", result.retryAfter); res.status(429).json({ error: "Too many login attempts" }); return false; } return true; }
 export const authRouter = Router();
-authRouter.post("/login", async (req, res, next) => {
-  try {
-    const user = await users.login(
-      req.body.email || "",
-      req.body.password || "",
-    );
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
-    const token = jwt.sign(
-      { id: user._id, email: user.email, role: user.role },
-      env.jwtSecret,
-      { expiresIn: "8h" },
-    );
-    res.json({
-      token,
-      user: { id: user._id, email: user.email, role: user.role },
-    });
-  } catch (e) {
-    next(e);
-  }
-});
-authRouter.get("/me", authenticate, (req, res) =>
-  res.json((req as AuthRequest).user),
-);
-authRouter.get(
-  "/users",
-  authenticate,
-  authorize("superadmin", "admin"),
-  async (_req, res, next) => {
-    try {
-      res.json(await users.list());
-    } catch (e) {
-      next(e);
-    }
-  },
-);
-authRouter.post(
-  "/users",
-  authenticate,
-  authorize("superadmin", "admin"),
-  async (req, res, next) => {
-    try {
-      res
-        .status(201)
-        .json(
-          await users.create(
-            req.body.email,
-            req.body.password,
-            req.body.role as Role,
-          ),
-        );
-    } catch (e) {
-      next(e);
-    }
-  },
-);
+authRouter.post("/login", async (req, res, next) => { try { if (!(await loginLimit(req, res))) return; const body = object(req.body); const email = text(body.email, "email", 254, true) || ""; const password = text(body.password, "password", 128, true) || ""; const user = await users.login(email, password); if (!user) { await audit({ action: "auth.login_failed", target: email, metadata: { ip: req.ip } }); return res.status(401).json({ error: "Invalid credentials" }); } const token = signAccess(user); const refreshToken = await sessions.create(user._id); res.cookie(refreshCookie, refreshToken, cookieOptions); await audit({ actor: user.email, action: "auth.login", target: user._id }); res.json({ token, user: { id: user._id, email: user.email, role: user.role } }); } catch (error) { next(error); } });
+authRouter.post("/refresh", async (req, res, next) => { try { const current = readCookie(req); if (!current) return res.status(401).json({ error: "Refresh token required" }); const rotated = await sessions.rotate(decodeURIComponent(current)); if (!rotated) { res.clearCookie(refreshCookie, cookieOptions); return res.status(401).json({ error: "Invalid refresh token" }); } const user = await users.find(rotated.userId); if (!user || user.active === false) { await sessions.revoke(rotated.token); res.clearCookie(refreshCookie, cookieOptions); return res.status(401).json({ error: "Session revoked" }); } res.cookie(refreshCookie, rotated.token, cookieOptions); res.json({ token: signAccess(user), user: { id: user._id, email: user.email, role: user.role } }); } catch (error) { next(error); } });
+authRouter.post("/logout", async (req, res, next) => { try { const current = readCookie(req); if (current) await sessions.revoke(decodeURIComponent(current)); res.clearCookie(refreshCookie, cookieOptions); res.status(204).end(); } catch (error) { next(error); } });authRouter.get("/me", authenticate, (req, res) => res.json((req as AuthRequest).user));
+authRouter.get("/users", authenticate, authorize("superadmin", "admin"), async (_req, res, next) => { try { res.json(await users.list()); } catch (error) { next(error); } });
+authRouter.post("/users", authenticate, authorize("superadmin", "admin"), async (req, res, next) => { try { const input = userInput(req.body); const created = await users.create(input.email, input.password, input.role); await audit({ actor: (req as AuthRequest).user?.email, action: "user.create", target: created._id, metadata: { email: created.email, role: created.role } }); res.status(201).json(created); } catch (error) { if (error instanceof ValidationError) return res.status(400).json({ error: error.message }); next(error); } });
+authRouter.patch("/users/:id", authenticate, authorize("superadmin", "admin"), async (req, res, next) => { try { const actor = (req as AuthRequest).user!; const target = await users.find(String(req.params.id)); if (!target) return res.status(404).json({ error: "User not found" }); const body = object(req.body); if (Object.keys(body).some((key) => !["role", "active", "password"].includes(key))) return res.status(400).json({ error: "Unsupported user field" }); if (target.role === "superadmin" && actor.id !== target._id) return res.status(403).json({ error: "Superadmin account is protected" }); if (actor.id === target._id && body.active === false) return res.status(400).json({ error: "You cannot disable your own account" }); if (body.role !== undefined && (typeof body.role !== "string" || !["admin", "manager", "developer"].includes(body.role))) return res.status(400).json({ error: "Invalid role" }); if (target.role === "superadmin" && body.role !== undefined) return res.status(400).json({ error: "Superadmin role cannot be changed here" }); if (body.active !== undefined && typeof body.active !== "boolean") return res.status(400).json({ error: "Invalid active state" }); if (body.password !== undefined && (typeof body.password !== "string" || body.password.length < 12)) return res.status(400).json({ error: "Password must be at least 12 characters" }); const updated = await users.update(target._id, { role: body.role as Role | undefined, active: body.active as boolean | undefined, password: body.password as string | undefined }); await sessions.revokeUser(target._id); await audit({ actor: actor.email, action: "user.update", target: target._id, metadata: { role: body.role, active: body.active, passwordReset: body.password !== undefined } }); res.json(updated); } catch (error) { next(error); } });
+
+

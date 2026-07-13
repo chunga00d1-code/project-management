@@ -1,72 +1,69 @@
-# GitHub PR Review Task Platform
+﻿# PR Review Task Platform
 
-M?t service Node.js/TypeScript ph?c v? d?ng th?i REST API backend v� React frontend. D? li?u d�ng MongoDB, x�c th?c JWT v� ph�n quy?n theo role.
+Nền tảng quản lý task tích hợp GitHub Pull Request, gồm Express/TypeScript, React và MongoDB. Hệ thống nhận webhook GitHub, tạo/cập nhật task, rà soát diff, gửi thông báo và cung cấp bảng quản trị vận hành.
 
-## C?u tr�c
-
-```text
-backend/src/
-  config/                 Bi?n m�i tru?ng
-  core/                   MongoDB, JWT, authorization
-  modules/
-    auth/                 Login v� JWT routes
-    users/                Bootstrap superadmin, user service
-    tasks/                Model, service, controller, router
-frontend/src/
-  api/                    API client
-  components/             Component t�i s? d?ng
-  features/               Feature auth, tasks
-  hooks/                  Custom hooks
-  types/                  TypeScript domain types
-  styles/                 Product styles
-```
-
-## C�i d?t
+## Chạy local
 
 ```bash
 npm install
-cp .env.example .env
+Copy-Item .env.example .env
 npm run dev
 ```
 
-C�c bi?n b?t bu?c:
+Yêu cầu Node.js 20+ và MongoDB. Thiết lập `MONGODB_URI`, `JWT_SECRET`, `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` trong `.env`.
 
-```env
-MONGODB_URI=mongodb://mongodb:27017/igen-erp
-JWT_SECRET=<long-random-secret>
-SUPERADMIN_EMAIL=admin@example.com
-SUPERADMIN_PASSWORD=<strong-password>
-```
-
-L?n kh?i d?ng d?u ti�n t?o m?t user `superadmin` n?u collection `users` dang tr?ng. �ang nh?p t? frontend b?ng email/password n�y d? nh?n JWT.
-
-## Roles
-
-| Role | Quy?n |
-| --- | --- |
-| `superadmin` | To�n quy?n, t?o user |
-| `admin` | Qu?n l� task v� user |
-| `manager` | T?o/s?a task |
-| `developer` | Xem task, d?i tr?ng th�i, b�nh lu?n |
-
-## L?nh
+## Kiểm tra chất lượng
 
 ```bash
-npm run dev
-npm run dev:frontend
-npm run build
-npm start
-npm run lint
-npm run typecheck
 npm test
+npm run typecheck
+npm run lint
+npm run build
 ```
 
-`npm run build` build React v�o `frontend/dist`, TypeScript backend v�o `dist/backend`; Express ph?c v? c? frontend v� API trong c�ng container/service.
+## Quyền
 
-## Docker
+| Role | Quyền |
+| --- | --- |
+| superadmin | Toàn quyền |
+| admin | Quản trị task, user, settings, operations |
+| manager | Tạo/sửa/xóa task |
+| developer | Xem task, đổi trạng thái, bình luận |
+
+Developer chỉ có thể gọi `PATCH /api/tasks/:id/status`; không thể sửa metadata hoặc xóa task.
+
+## API chính
+
+- `POST /api/auth/login`, `GET /api/auth/me`
+- `GET/POST /api/tasks`, `PATCH /api/tasks/:id`, `PATCH /api/tasks/:id/status`
+- `GET /api/tasks/search?q=&priority=&project=&assignee=&page=&limit=`
+- `GET /api/tasks/dashboard`
+- `GET/PUT /api/settings` (admin)
+- `GET /api/operations/audit`, `GET /api/operations/dead-letter`
+- `POST /api/operations/dead-letter/:id/retry`
+- `POST /webhooks/github`
+
+Task hỗ trợ `project`, `sprint`, `team`, assignee, priority, due date, label và liên kết PR.
+
+## Vận hành
 
 ```bash
 docker compose up -d --build
 ```
 
-Container webhook ph?i truy c?p du?c MongoDB qua hostname/network ph� h?p; kh�ng d�ng `localhost` cho MongoDB n?m ngo�i container.
+Kiểm tra `GET /health` và `GET /ready`. MongoDB tự tạo index cho user, PR task, webhook delivery, retry queue, dead-letter queue và audit log lúc khởi động.
+
+Webhook GitHub cần cấu hình HMAC secret. Nên giới hạn `ALLOWED_REPOSITORIES`, dùng token GitHub tối thiểu quyền và lưu secret bằng cơ chế secret manager của môi trường triển khai.
+
+Job thông báo retry theo exponential backoff, tối đa 8 lần. Job thất bại cuối cùng nằm trong dead-letter queue và có thể retry lại trên giao diện Operations.
+
+## Logging
+
+Ứng dụng dùng Winston và xuất structured JSON ra stdout. Mỗi HTTP request có `x-request-id`, method, path, status, duration, IP và user-agent. Lỗi request trả lại `requestId` để đối chiếu log.
+
+- `LOG_LEVEL`: `error`, `warn`, `info`, `http`, `verbose`, `debug` hoặc `silly`.
+- `LOG_FILE`: bỏ trống để chỉ ghi stdout; đặt đường dẫn để ghi thêm file xoay vòng.
+- `LOG_MAX_SIZE`: kích thước tối đa mỗi file, mặc định 10 MB.
+- `LOG_MAX_FILES`: số file giữ lại, mặc định 5.
+
+Không nên ghi log file trong container nếu chưa mount volume; stdout phù hợp hơn cho Docker logging driver.
