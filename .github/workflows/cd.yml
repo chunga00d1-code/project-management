@@ -130,6 +130,9 @@ jobs:
             export COMPOSE_PROJECT_NAME="$CONTAINER_NAME"
             export IMAGE_NAME IMAGE_TAG CONTAINER_NAME
             docker compose pull
+            # Stop and remove old containers if they exist to free up the port
+            docker rm -f github-pr-webhook-${{ github.ref_name }} 2>/dev/null || true
+            docker rm -f github-pr-webhook 2>/dev/null || true
             docker compose up -d --remove-orphans
             docker image prune -f
             for i in $(seq 1 30); do
