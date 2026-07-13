@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
+
 type User = { id: string; email: string; role: string; active: boolean; createdAt: string };
+
 export function Users() {
   const [users, setUsers] = useState<User[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("developer");
   const [message, setMessage] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
 
   const load = () => api<User[]>("/auth/users").then(setUsers);
   useEffect(() => {
@@ -31,8 +34,11 @@ export function Users() {
 
   return (
     <main>
-      <header>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Quản Lý Thành Viên</h2>
+        <button className="btn-primary" style={{ width: "auto" }} onClick={() => setShowCreate(true)}>
+          ➕ Thêm thành viên
+        </button>
       </header>
 
       {message && (
@@ -41,13 +47,77 @@ export function Users() {
         </div>
       )}
 
-      <div className="grid-2">
-        {/* Left Column: Create User Form */}
-        <div>
-          <h3>👥 Thêm Thành Viên Mới</h3>
+      {/* Grid of Users List */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        <h3>📋 Danh Sách Thành Viên ({users.length})</h3>
+        <div className="grid-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: "1.5rem" }}>
+          {users.map((user) => (
+            <article key={user.id} className="project-card" style={{ margin: 0, gap: "1rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <strong style={{ fontSize: "1.1rem", wordBreak: "break-all" }}>{user.email}</strong>
+                <div className="flex-row" style={{ gap: "0.5rem" }}>
+                  <span className={`pill ${user.active ? "active" : "disabled"}`}>
+                    {user.active ? "Đang hoạt động" : "Bị vô hiệu hóa"}
+                  </span>
+                  <span className="pill">
+                    Vai trò: <strong>{user.role}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-row" style={{ gap: "0.5rem", marginTop: "0.5rem" }}>
+                <select
+                  disabled={user.role === "superadmin"}
+                  value={user.role}
+                  onChange={(e) => void update(user.id, { role: e.target.value })}
+                  style={{ padding: "0.4rem", fontSize: "0.85rem", width: "auto" }}
+                >
+                  {["superadmin", "admin", "manager", "developer"].map((item) => (
+                    <option key={item} value={item}>
+                      {item.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  className="btn-danger"
+                  disabled={user.role === "superadmin"}
+                  onClick={() => void update(user.id, { active: !user.active })}
+                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
+                >
+                  {user.active ? "Vô hiệu hóa" : "Kích hoạt"}
+                </button>
+
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    const next = prompt("Nhập mật khẩu mới (tối thiểu 12 ký tự):");
+                    if (next) {
+                      if (next.length < 12) {
+                        alert("Mật khẩu phải dài tối thiểu 12 ký tự!");
+                      } else {
+                        void update(user.id, { password: next });
+                      }
+                    }
+                  }}
+                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
+                >
+                  Đặt lại MK
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      {showCreate && (
+        <dialog open style={{ maxWidth: "550px", width: "95%", zIndex: 1100 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+            <h2>➕ Thêm Thành Viên Mới</h2>
+          </div>
           <form
             className="project-card"
-            style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem", maxWidth: "100%" }}
+            style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem", maxWidth: "100%", border: "none", padding: 0 }}
             onSubmit={async (e) => {
               e.preventDefault();
               try {
@@ -60,6 +130,7 @@ export function Users() {
                 setRole("developer");
                 setMessage("Tạo thành viên mới thành công!");
                 setTimeout(() => setMessage(""), 3000);
+                setShowCreate(false);
                 void load();
               } catch (error) {
                 setMessage(error instanceof Error ? error.message : "Thêm thành viên thất bại");
@@ -97,73 +168,15 @@ export function Users() {
                 ))}
               </select>
             </div>
-            <button className="btn-primary">Tạo thành viên</button>
+            <div className="flex-row" style={{ justifyContent: "flex-end", marginTop: "0.5rem" }}>
+              <button type="button" className="btn-danger" style={{ width: "auto" }} onClick={() => setShowCreate(false)}>
+                Hủy bỏ
+              </button>
+              <button className="btn-primary" style={{ width: "auto" }}>Tạo thành viên</button>
+            </div>
           </form>
-        </div>
-
-        {/* Right Column: Users List */}
-        <div>
-          <h3>📋 Danh Sách Thành Viên ({users.length})</h3>
-          <ul className="list-container" style={{ listStyle: "none", marginTop: "1rem" }}>
-            {users.map((user) => (
-              <li key={user.id} className="project-card" style={{ margin: 0 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <strong style={{ fontSize: "1.1rem" }}>{user.email}</strong>
-                  <div className="flex-row" style={{ gap: "0.5rem" }}>
-                    <span className={`pill ${user.active ? "active" : "disabled"}`}>
-                      {user.active ? "Đang hoạt động" : "Bị vô hiệu hóa"}
-                    </span>
-                    <span className="pill">
-                      Vai trò: <strong>{user.role}</strong>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex-row" style={{ gap: "0.5rem", marginTop: "0.5rem" }}>
-                  <select
-                    disabled={user.role === "superadmin"}
-                    value={user.role}
-                    onChange={(e) => void update(user.id, { role: e.target.value })}
-                    style={{ padding: "0.4rem", fontSize: "0.85rem", width: "auto" }}
-                  >
-                    {["superadmin", "admin", "manager", "developer"].map((item) => (
-                      <option key={item} value={item}>
-                        {item.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    className="btn-danger"
-                    disabled={user.role === "superadmin"}
-                    onClick={() => void update(user.id, { active: !user.active })}
-                    style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
-                  >
-                    {user.active ? "Vô hiệu hóa" : "Kích hoạt"}
-                  </button>
-
-                  <button
-                    className="btn-primary"
-                    onClick={() => {
-                      const next = prompt("Nhập mật khẩu mới (tối thiểu 12 ký tự):");
-                      if (next) {
-                        if (next.length < 12) {
-                          alert("Mật khẩu phải dài tối thiểu 12 ký tự!");
-                        } else {
-                          void update(user.id, { password: next });
-                        }
-                      }
-                    }}
-                    style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
-                  >
-                    Đặt lại MK
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+        </dialog>
+      )}
     </main>
   );
 }

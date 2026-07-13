@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { Project } from "../auth/Projects";
-export function CreateTask({ onCreated }: { onCreated: () => void }) {
-  const [isOpen, setIsOpen] = useState(false);
+export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
@@ -21,20 +20,9 @@ export function CreateTask({ onCreated }: { onCreated: () => void }) {
 
   const project = projects.find((item) => item._id === projectId);
 
-  if (!isOpen) {
-    return (
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
-        <button className="btn-primary" style={{ width: "auto" }} onClick={() => setIsOpen(true)}>
-          ➕ Tạo nhiệm vụ mới
-        </button>
-      </div>
-    );
-  }
-
   return (
     <form
-      className="project-card"
-      style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "100%", animation: "modalEntrance 0.3s ease" }}
+      style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "100%" }}
       onSubmit={async (e) => {
         e.preventDefault();
         await api("/tasks", {
@@ -55,11 +43,9 @@ export function CreateTask({ onCreated }: { onCreated: () => void }) {
         setLabels("");
         setSprint("");
         setTeam("");
-        setIsOpen(false);
         onCreated();
       }}
     >
-      <h3>Tạo Nhiệm Vụ Mới</h3>
       <div className="grid-2">
         <div>
           <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Tiêu đề nhiệm vụ *</label>
@@ -109,7 +95,7 @@ export function CreateTask({ onCreated }: { onCreated: () => void }) {
       </div>
 
       <div className="flex-row" style={{ justifyContent: "flex-end", marginTop: "0.5rem" }}>
-        <button type="button" className="btn-danger" style={{ padding: "0.75rem 1.5rem", borderRadius: "var(--radius-md)" }} onClick={() => setIsOpen(false)}>
+        <button type="button" className="btn-danger" style={{ padding: "0.75rem 1.5rem", borderRadius: "var(--radius-md)" }} onClick={onCancel}>
           Hủy bỏ
         </button>
         <button className="btn-primary" style={{ width: "auto", padding: "0.75rem 1.5rem" }} disabled={!projectId}>
