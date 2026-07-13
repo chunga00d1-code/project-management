@@ -1,5 +1,7 @@
 # PR Review Task Platform
 
+> Hướng dẫn production: [Cấu hình GitHub App và webhook](docs/GITHUB_APP_SETUP_VI.md)
+
 Nền tảng quản lý task tích hợp GitHub Pull Request, gồm Express/TypeScript, React và MongoDB. Hệ thống nhận webhook GitHub, tạo/cập nhật task, rà soát diff, gửi thông báo và cung cấp bảng quản trị vận hành.
 
 ## Chạy local
