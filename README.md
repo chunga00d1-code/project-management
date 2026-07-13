@@ -1,4 +1,4 @@
-﻿# PR Review Task Platform
+# PR Review Task Platform
 
 Nền tảng quản lý task tích hợp GitHub Pull Request, gồm Express/TypeScript, React và MongoDB. Hệ thống nhận webhook GitHub, tạo/cập nhật task, rà soát diff, gửi thông báo và cung cấp bảng quản trị vận hành.
 
@@ -67,3 +67,9 @@ Job thông báo retry theo exponential backoff, tối đa 8 lần. Job thất b�
 - `LOG_MAX_FILES`: số file giữ lại, mặc định 5.
 
 Không nên ghi log file trong container nếu chưa mount volume; stdout phù hợp hơn cho Docker logging driver.
+
+## Truy cập trực tiếp bằng IP
+
+Mặc định Docker publish ứng dụng tại `0.0.0.0:2000`, nên có thể kiểm tra bằng `http://IP_VPS:2000` sau khi mở firewall. Cấu hình bằng `HOST_PORT` và `BIND_ADDRESS`.
+
+Khi đã dùng Nginx, đặt `BIND_ADDRESS=127.0.0.1` để không public trực tiếp cổng ứng dụng.
