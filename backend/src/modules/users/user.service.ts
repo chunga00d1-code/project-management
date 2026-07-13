@@ -1,11 +1,36 @@
-﻿import bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { database } from "../../core/database.js";
 import type { Role } from "../../core/auth.js";
 import type { UserModel } from "./user.model.js";
 export class UserService {
   private async col() { return (await database()).collection<UserModel>("users"); }
-  async bootstrap(email: string, password: string) { const col = await this.col(); if (await col.countDocuments()) return; await col.insertOne({ _id: randomUUID(), email: email.toLowerCase(), passwordHash: await bcrypt.hash(password, 12), role: "superadmin", active: true, tokenVersion: 0, createdAt: new Date().toISOString() }); }
+  async bootstrap(email: string, password: string) {
+    const col = await this.col();
+    const existing = await col.findOne({ email: email.toLowerCase() });
+    if (!existing) {
+      await col.insertOne({
+        _id: randomUUID(),
+        email: email.toLowerCase(),
+        passwordHash: await bcrypt.hash(password, 12),
+        role: "superadmin",
+        active: true,
+        tokenVersion: 0,
+        createdAt: new Date().toISOString()
+      });
+    } else {
+      await col.updateOne(
+        { _id: existing._id },
+        {
+          $set: {
+            passwordHash: await bcrypt.hash(password, 12),
+            role: "superadmin",
+            active: true
+          }
+        }
+      );
+    }
+  }
   async login(email: string, password: string) { const user = await (await this.col()).findOne({ email: email.toLowerCase() }); if (!user || user.active === false || !(await bcrypt.compare(password, user.passwordHash))) return null; return user; }
   async find(id: string) { return (await this.col()).findOne({ _id: id }); }
   async list() { return (await (await this.col()).find({}, { projection: { passwordHash: 0 } }).sort({ createdAt: -1 }).toArray()).map((user) => ({ id: user._id, email: user.email, role: user.role, active: user.active !== false, createdAt: user.createdAt })); }
