@@ -1,7 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 export type TaskQuery = { q: string; priority: string; project: string };
-export function TaskFilters({ onChange }: { onChange: (query: TaskQuery) => void }) {
-  const [query, setQuery] = useState<TaskQuery>({ q: "", priority: "", project: "" });
-  const update = (next: TaskQuery) => { setQuery(next); onChange(next); };
-  return <div className="filter-bar"><input placeholder="Tìm kiếm nhiệm vụ..." value={query.q} onChange={(e) => update({ ...query, q: e.target.value })} /><select value={query.priority} onChange={(e) => update({ ...query, priority: e.target.value })}><option value="">Tất cả mức độ ưu tiên</option>{["low", "medium", "high", "urgent"].map((x) => <option key={x} value={x}>{x.toUpperCase()}</option>)}</select><input placeholder="Dự án..." value={query.project} onChange={(e) => update({ ...query, project: e.target.value })} /></div>;
-}
+const empty: TaskQuery = { q: "", priority: "", project: "" };
+export function TaskFilters({ onChange }: { onChange: (query: TaskQuery) => void }) { const [query, setQuery] = useState<TaskQuery>(empty); const update = (next: TaskQuery) => { setQuery(next); onChange(next); }; const active = Object.values(query).some(Boolean); return <div className="filter-bar"><label className="search-field"><span>Tìm kiếm</span><input placeholder="Tên hoặc mô tả nhiệm vụ…" value={query.q} onChange={(e) => update({ ...query, q: e.target.value })} /></label><label><span>Ưu tiên</span><select value={query.priority} onChange={(e) => update({ ...query, priority: e.target.value })}><option value="">Tất cả mức độ</option>{["low", "medium", "high", "urgent"].map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select></label><label><span>Dự án</span><input placeholder="Tất cả dự án" value={query.project} onChange={(e) => update({ ...query, project: e.target.value })} /></label><button className="btn-secondary clear-filter" disabled={!active} onClick={() => update(empty)}>Xóa lọc</button></div>; }

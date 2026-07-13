@@ -1,7 +1,15 @@
-﻿import { createClient } from "redis";
+import { createClient } from "redis";
 import { env } from "../config/env.js";
 import { logger } from "./logger.js";
-const redis = env.redisUrl ? createClient({ url: env.redisUrl }) : undefined;
+const redis = env.redisHost
+  ? createClient({
+      socket: {
+        host: env.redisHost,
+        port: env.redisPort,
+      },
+      password: env.redisPassword || undefined,
+    })
+  : undefined;
 const memory = new Map<string, { count: number; expiresAt: number }>();
 if (redis) redis.on("error", (error) => logger.error("redis_error", { error }));
 export async function connectRateLimiter() { if (!redis || redis.isOpen) return; try { await redis.connect(); logger.info("redis_connected"); } catch (error) { logger.warn("redis_connect_failed_using_memory_rate_limit", { error }); } }
