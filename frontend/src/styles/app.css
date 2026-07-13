@@ -98,6 +98,7 @@ h1, h2, h3, h4, h5, h6 {
 nav.sidebar {
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
+  box-shadow: 2px 0 8px rgba(15, 23, 42, 0.03);
   padding: 2rem 1.5rem;
   display: flex;
   flex-direction: column;
@@ -337,7 +338,7 @@ form.login-form .error-message {
 }
 
 .kanban-column {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 1.25rem 1rem;
