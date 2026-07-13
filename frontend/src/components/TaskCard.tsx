@@ -12,13 +12,18 @@ export function TaskCard({
 }) {
   return (
     <article
+      className="task-card"
       draggable
       onDragStart={(e) => e.dataTransfer.setData("taskId", task._id)}
     >
-      <b>{task.title}</b>
-      <p>
-        {task.assignee} • {task.priority}
-      </p>
+      <div className="task-title">{task.title}</div>
+      <div className="task-meta">
+        <span>👤 {task.assignee || "Chưa giao"}</span>
+        <span className={`badge-priority ${task.priority}`}>
+          {task.priority.toUpperCase()}
+        </span>
+        {task.project && <span>📁 {task.project}</span>}
+      </div>
       <select value={task.status} onChange={(e) => onStatus(e.target.value)}>
         {[
           "todo",
@@ -28,11 +33,17 @@ export function TaskCard({
           "done",
           "cancelled",
         ].map((s) => (
-          <option key={s}>{s}</option>
+          <option key={s} value={s}>{s}</option>
         ))}
       </select>
-      <button onClick={onOpen}>Details</button>
-      <button onClick={onDelete}>Delete</button>
+      <div className="card-actions">
+        <button className="btn-details" onClick={onOpen}>
+          Chi tiết
+        </button>
+        <button className="btn-danger" style={{ padding: "0.4rem" }} onClick={onDelete}>
+          Xóa
+        </button>
+      </div>
     </article>
   );
 }
