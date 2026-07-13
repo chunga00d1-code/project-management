@@ -6,12 +6,36 @@ const redis = env.redisHost
       socket: {
         host: env.redisHost,
         port: env.redisPort,
+        reconnectStrategy: (retries) => {
+          if (env.nodeEnv === "development") {
+            return false;
+          }
+          return Math.min(retries * 100, 3000);
+        }
       },
       password: env.redisPassword || undefined,
     })
   : undefined;
 const memory = new Map<string, { count: number; expiresAt: number }>();
-if (redis) redis.on("error", (error) => logger.error("redis_error", { error }));
-export async function connectRateLimiter() { if (!redis || redis.isOpen) return; try { await redis.connect(); logger.info("redis_connected"); } catch (error) { logger.warn("redis_connect_failed_using_memory_rate_limit", { error }); } }
+let useRedis = false;
+
+if (redis) {
+  redis.on("error", (error) => {
+    if (useRedis || env.nodeEnv === "production") {
+      logger.error("redis_error", { error });
+    }
+  });
+}
+export async function connectRateLimiter() {
+  if (!redis || redis.isOpen) return;
+  try {
+    await redis.connect();
+    useRedis = true;
+    logger.info("redis_connected");
+  } catch (error) {
+    useRedis = false;
+    logger.warn("redis_connect_failed_using_memory_rate_limit", { error });
+  }
+}
 export async function closeRateLimiter() { if (redis?.isOpen) await redis.close(); }
 export async function consumeRateLimit(key: string, limit: number, windowSeconds: number) { if (redis?.isReady) { const namespaced = `rate:${key}`; const count = await redis.incr(namespaced); if (count === 1) await redis.expire(namespaced, windowSeconds); return { allowed: count <= limit, remaining: Math.max(0, limit - count), retryAfter: await redis.ttl(namespaced) }; } const now = Date.now(); const current = memory.get(key); const state = !current || current.expiresAt <= now ? { count: 0, expiresAt: now + windowSeconds * 1000 } : current; state.count += 1; memory.set(key, state); if (memory.size > 10000) for (const [itemKey, item] of memory) if (item.expiresAt <= now) memory.delete(itemKey); return { allowed: state.count <= limit, remaining: Math.max(0, limit - state.count), retryAfter: Math.max(1, Math.ceil((state.expiresAt - now) / 1000)) }; }

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Login } from "./features/auth/Login";
 import { TaskBoard } from "./features/tasks/TaskBoard";
 import { Settings } from "./features/auth/Settings";
