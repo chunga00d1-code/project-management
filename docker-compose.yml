@@ -1,7 +1,7 @@
 services:
-  github-pr-webhook:
-    image: ${IMAGE_NAME:-ghcr.io/chung2310/github-pr-webhook}:${IMAGE_TAG:-latest}
-    container_name: ${CONTAINER_NAME:-github-pr-webhook}
+  project-management:
+    image: ${IMAGE_NAME:-ghcr.io/chunga00d1-code/project-management}:${IMAGE_TAG:-latest}
+    container_name: ${CONTAINER_NAME:-project-management}
     restart: always
     env_file:
       - .env

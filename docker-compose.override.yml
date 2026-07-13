@@ -1,6 +1,6 @@
 services:
-  github-pr-webhook:
+  project-management:
     build:
       context: .
       dockerfile: Dockerfile
-    image: github-pr-webhook:local
+    image: project-management:local

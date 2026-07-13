@@ -104,14 +104,14 @@ jobs:
           key: ${{ github.ref_name == 'production' && secrets.SSH_KEY_PROD || secrets.SSH_KEY }}
           port: ${{ github.ref_name == 'production' && secrets.SSH_PORT_PROD || secrets.SSH_PORT || '22' }}
           source: docker-compose.yml
-          target: /opt/github-pr-webhook/${{ github.ref_name }}
+          target: /opt/project-management/${{ github.ref_name }}
       - name: Deploy with Docker Compose
         uses: appleboy/ssh-action@v1.0.3
         env:
           ENV_FILE_CONTENT: ${{ github.ref_name == 'production' && secrets.ENV_FILE_PROD || secrets.ENV_FILE }}
           IMAGE_NAME: ghcr.io/${{ github.repository }}
           IMAGE_TAG: ${{ github.ref_name }}
-          CONTAINER_NAME: github-pr-webhook-${{ github.ref_name }}
+          CONTAINER_NAME: project-management-${{ github.ref_name }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
         with:
@@ -122,7 +122,7 @@ jobs:
           envs: ENV_FILE_CONTENT,IMAGE_NAME,IMAGE_TAG,CONTAINER_NAME,GHCR_TOKEN,GHCR_USER
           script: |
             set -eu
-            TARGET_DIR="/opt/github-pr-webhook/${{ github.ref_name }}"
+            TARGET_DIR="/opt/project-management/${{ github.ref_name }}"
             mkdir -p "$TARGET_DIR"
             cd "$TARGET_DIR"
             printf '%s' "$ENV_FILE_CONTENT" > .env
@@ -133,7 +133,7 @@ jobs:
             docker compose up -d --remove-orphans
             docker image prune -f
             for i in $(seq 1 30); do
-              if docker compose exec -T github-pr-webhook wget -qO- http://127.0.0.1:2000/health 2>/dev/null; then
+              if docker compose exec -T project-management wget -qO- http://127.0.0.1:2000/health 2>/dev/null; then
                 echo "Health check passed"
                 exit 0
               fi
@@ -141,5 +141,5 @@ jobs:
               sleep 2
             done
             echo "Health check failed after 60s, container logs:"
-            docker compose logs --tail=100 github-pr-webhook
+            docker compose logs --tail=100 project-management
             exit 1
