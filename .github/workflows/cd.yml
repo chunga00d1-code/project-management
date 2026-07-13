@@ -133,7 +133,7 @@ jobs:
             docker compose up -d --remove-orphans
             docker image prune -f
             for i in $(seq 1 30); do
-              if docker compose exec -T github-pr-webhook wget -qO- http://127.0.0.1:3000/health 2>/dev/null; then
+              if docker compose exec -T github-pr-webhook wget -qO- http://127.0.0.1:2000/health 2>/dev/null; then
                 echo "Health check passed"
                 exit 0
               fi
