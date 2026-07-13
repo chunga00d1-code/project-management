@@ -1,26 +1,32 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
 type Audit = { _id: string; at: string; actor?: string; action: string; target: string };
+type RealtimeStats = { enabled: boolean; redisConnected: boolean; activeConnections: number; publishedEvents: number; receivedEvents: number; publishFailures: number };
 type Dead = { _id: string; type: string; attempts: number; lastError?: string; payload: { repository: string; number: number } };
 export function Operations() {
   const [audit, setAudit] = useState<Audit[]>([]);
   const [jobs, setJobs] = useState<Dead[]>([]);
   const [error, setError] = useState("");
+  const [realtime, setRealtime] = useState<RealtimeStats>();
 
   const load = () =>
     Promise.all([
       api<{ items: Audit[] }>("/operations/audit"),
       api<Dead[]>("/operations/dead-letter"),
+      api<RealtimeStats>("/operations/realtime"),
     ])
-      .then(([a, j]) => {
+      .then(([a, j, realtimeValue]) => {
         setAudit(a.items);
         setJobs(j);
+        setRealtime(realtimeValue);
       })
       .catch((e: Error) => setError(e.message));
 
   useEffect(() => {
     void load();
   }, []);
+  useRealtimeRefresh(["operations.", "notification."], () => void load());
 
   return (
     <main>
@@ -33,6 +39,8 @@ export function Operations() {
           {error}
         </div>
       )}
+
+      {realtime && <div className="dashboard-grid"><div className="dashboard-card"><span className="label">SSE đang kết nối</span><span className="value">{realtime.activeConnections}</span></div><div className="dashboard-card"><span className="label">Event đã phát</span><span className="value">{realtime.publishedEvents}</span></div><div className="dashboard-card"><span className="label">Redis Pub/Sub</span><span className="value" style={{ color: realtime.redisConnected ? "#4ade80" : "#fb923c" }}>{realtime.redisConnected ? "ON" : "LOCAL"}</span></div><div className="dashboard-card danger"><span className="label">Publish lỗi</span><span className="value">{realtime.publishFailures}</span></div></div>}
 
       <div className="grid-2">
         {/* Left: Failed jobs (Dead Letter Queue) */}

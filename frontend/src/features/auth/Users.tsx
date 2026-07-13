@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
 type User = { id: string; email: string; role: string; active: boolean; createdAt: string };
 export function Users() {
   const [users, setUsers] = useState<User[]>([]);
@@ -12,6 +13,7 @@ export function Users() {
   useEffect(() => {
     void load();
   }, []);
+  useRealtimeRefresh(["user."], () => void load());
 
   async function update(id: string, body: Record<string, unknown>) {
     try {

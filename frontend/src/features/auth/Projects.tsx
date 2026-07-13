@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
 export type ProjectRole = "owner" | "manager" | "member" | "viewer";
 export type Project = { _id: string; name: string; description: string; team?: string; members: { email: string; role: ProjectRole }[] };
 export function Projects() {
@@ -15,6 +16,7 @@ export function Projects() {
   useEffect(() => {
     void load();
   }, []);
+  useRealtimeRefresh(["project."], () => void load());
 
   return (
     <main>

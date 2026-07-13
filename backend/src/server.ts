@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { env, validateEnv } from "./config/env.js";
@@ -15,20 +15,20 @@ import { retryQueue } from "./modules/jobs/retry-queue.service.js";
 import { operationsRouter } from "./modules/jobs/operations.router.js";
 import { notifyReview } from "./modules/notifications/notification.service.js";
 import { deadlineScheduler } from "./modules/notifications/deadline-scheduler.service.js";
-validateEnv(); await database(); await ensureIndexes(); await connectRateLimiter(); await new UserService().bootstrap(env.superadminEmail, env.superadminPassword);
+import { realtimeRouter } from "./modules/realtime/realtime.router.js";
+import { startRealtime, stopRealtime } from "./modules/realtime/realtime.service.js";
+validateEnv(); await database(); await ensureIndexes(); await connectRateLimiter(); await startRealtime(); await new UserService().bootstrap(env.superadminEmail, env.superadminPassword);
 const app = express(); app.use(requestLogger);
 app.use("/webhooks", async (req, res, next) => { try { const result = await consumeRateLimit(`webhook:${req.ip || "unknown"}`, 120, 60); res.setHeader("x-ratelimit-remaining", result.remaining); if (!result.allowed) { res.setHeader("retry-after", result.retryAfter); return res.status(429).json({ error: "Too many requests" }); } next(); } catch (error) { next(error); } });
 app.use("/webhooks", express.raw({ type: "application/json", limit: "2mb" })); app.use(express.json());
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 app.get("/ready", async (_req, res) => { try { await (await database()).command({ ping: 1 }); res.json({ status: "ready" }); } catch (error) { logger.warn("readiness_check_failed", { error }); res.status(503).json({ status: "not_ready" }); } });
-app.use("/api/auth", authRouter); app.use("/api/tasks", taskRouter); app.use("/api/settings", settingsRouter); app.use("/api/projects", projectRouter); app.use("/api/operations", operationsRouter); app.use("/webhooks", webhookRouter);
+app.use("/api/auth", authRouter); app.use("/api/realtime", realtimeRouter); app.use("/api/tasks", taskRouter); app.use("/api/settings", settingsRouter); app.use("/api/projects", projectRouter); app.use("/api/operations", operationsRouter); app.use("/webhooks", webhookRouter);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../frontend/dist");
 app.use(errorLogger); app.use(express.static(root)); app.get("/{*splat}", (_req, res) => res.sendFile(path.join(root, "index.html")));
 deadlineScheduler.start();
 retryQueue.start(async (job) => { if (job.type === "notification") await notifyReview(job.payload.repository, job.payload.number, job.payload.url, job.payload.findings); });
 const server = app.listen(env.port, () => logger.info("service_started", { port: env.port }));
-process.on("SIGTERM", () => { logger.info("service_stopping", { signal: "SIGTERM" }); deadlineScheduler.stop(); retryQueue.stop(); server.close(() => Promise.all([closeDatabase(), closeRateLimiter()]).then(() => process.exit(0))); });
+process.on("SIGTERM", () => { logger.info("service_stopping", { signal: "SIGTERM" }); deadlineScheduler.stop(); retryQueue.stop(); server.close(() => Promise.all([stopRealtime(), closeRateLimiter()]).then(() => closeDatabase()).then(() => process.exit(0))); });
 process.on("uncaughtException", (error) => { logger.error("uncaught_exception", { error }); process.exit(1); });
 process.on("unhandledRejection", (error) => { logger.error("unhandled_rejection", { error }); });
-
-

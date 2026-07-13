@@ -1,0 +1,2 @@
+﻿import { useEffect, useRef } from "react";
+export function useRealtimeRefresh(prefixes: string[], refresh: () => void) { const refreshRef = useRef(refresh); refreshRef.current = refresh; const key = prefixes.join("|"); useEffect(() => { const handler = (raw: Event) => { const event = (raw as CustomEvent<{ type?: string }>).detail; if (event?.type && prefixes.some((prefix) => event.type!.startsWith(prefix))) refreshRef.current(); }; window.addEventListener("app:realtime", handler); return () => window.removeEventListener("app:realtime", handler); }, [key]); }

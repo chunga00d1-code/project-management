@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { env } from "../../config/env.js";
+import { audit } from "../../core/audit.service.js";
 import { verifySignature, reviewDiff } from "../reviews/review.service.js";
 import { notifyReview } from "../notifications/notification.service.js";
 import { TaskService } from "../tasks/task.service.js";
@@ -82,7 +83,7 @@ webhookRouter.post("/github", async (req, res, next) => {
       findings
         .map((f) => `[${f.severity}] ${f.file}: ${f.message}`)
         .join("\n") || "No findings";
-    await tasks.upsertPullRequest({
+    const syncedTask = await tasks.upsertPullRequest({
       repository: payload.repository.full_name,
       number: pr.number,
       title: pr.title,
@@ -91,6 +92,7 @@ webhookRouter.post("/github", async (req, res, next) => {
       summary,
       assignee,
     });
+    if (syncedTask) await audit({ actor: "github-webhook", action: "task.update", target: syncedTask._id, metadata: { projectId: syncedTask.projectId, repository: payload.repository.full_name, pullRequestNumber: pr.number } });
     if (runtime.postReviewComment) {
       const comment = await fetch(pr.comments_url, {
         method: "POST",

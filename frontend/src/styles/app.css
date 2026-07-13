@@ -759,3 +759,33 @@ article.task-card button.task-title:hover { color: #a5b4fc; }
 @media (max-width: 1100px) { .filter-bar { grid-template-columns: 1fr 1fr; } .clear-filter { width: 100%; } }
 @media (max-width: 900px) { .nav-group { flex-direction: row; flex: initial; order: 3; width: 100%; overflow-x: auto; padding-top: .5rem; } .sidebar-footer { margin-left: auto; flex-direction: row; padding: 0; border: 0; } .user-chip { display: none; } nav.sidebar button { white-space: nowrap; } .kanban-column { max-height: none; } }
 @media (max-width: 640px) { .filter-bar { position: static; grid-template-columns: 1fr; } .kanban-grid { grid-template-columns: repeat(6, minmax(84vw, 1fr)); } main header h1 { font-size: 1.55rem; } .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; } dialog { width: 96%; padding: 1.25rem; } }
+
+/* Realtime and query states */
+.realtime-status { position: fixed; right: 1rem; bottom: 1rem; z-index: 1000; display: flex; align-items: center; gap: .45rem; padding: .48rem .72rem; border: 1px solid var(--border-color); border-radius: 999px; background: rgba(15,23,42,.9); color: var(--text-secondary); box-shadow: var(--shadow-lg); backdrop-filter: blur(12px); font-size: .72rem; font-weight: 700; }
+.realtime-status span { width: .48rem; height: .48rem; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,.12); }
+.realtime-status.online span { background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.12); }
+.realtime-status.offline span { background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.12); animation: pulse-status 1.2s infinite; }
+@keyframes pulse-status { 50% { opacity: .4; } }
+.eyebrow { margin-bottom: .25rem; color: #818cf8; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.page-subtitle { margin-top: .35rem; color: var(--text-secondary); font-size: .9rem; }
+main > header > div { min-width: 0; }
+main > header > div + div, main > header > div + button { flex: 0 0 auto; }
+.toast-message { position: fixed; top: 1rem; right: 1rem; z-index: 1200; padding: .7rem 1rem; border: 1px solid rgba(99,102,241,.28); border-radius: var(--radius-md); background: rgba(30,41,59,.94); color: #c7d2fe; box-shadow: var(--shadow-lg); font-size: .8rem; }
+.kanban-loading { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.skeleton-column span, .skeleton-card { display: block; min-height: 88px; border-radius: var(--radius-md); background: linear-gradient(90deg, rgba(255,255,255,.035), rgba(255,255,255,.085), rgba(255,255,255,.035)); background-size: 220% 100%; animation: skeleton 1.4s infinite; }
+@keyframes skeleton { to { background-position: -220% 0; } }
+.column-empty { display: grid; min-height: 90px; place-items: center; border: 1px dashed var(--border-color); border-radius: var(--radius-md); color: var(--text-muted); font-size: .78rem; }
+.pagination-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.15rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-secondary); color: var(--text-secondary); font-size: .82rem; }
+.pagination-bar > div { display: flex; gap: .6rem; }
+.server-dashboard { display: grid; gap: 1rem; }
+.dashboard-grid.compact { grid-template-columns: repeat(4, minmax(105px, 1fr)); }
+.dashboard-card.danger .value { color: var(--priority-urgent-text); }
+.dashboard-card.warning .value { color: var(--priority-high-text); }
+.workload-details { padding: .8rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-secondary); }
+.workload-details summary { cursor: pointer; color: var(--text-secondary); font-weight: 700; }
+.workload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; padding-top: .9rem; }
+.workload-grid p { display: flex; justify-content: space-between; gap: .5rem; margin-top: .4rem; padding-bottom: .35rem; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: .76rem; }
+.workload-grid p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 720px) { main > header { align-items: flex-start; gap: 1rem; } .pagination-bar { align-items: stretch; flex-direction: column; } .pagination-bar > div button { flex: 1; } .dashboard-grid.compact { grid-template-columns: repeat(2, 1fr); } .workload-grid { grid-template-columns: 1fr; } .kanban-loading { grid-template-columns: 1fr; } }
+
+.realtime-status.polling span { background: #60a5fa; box-shadow: 0 0 0 4px rgba(96,165,250,.12); }

@@ -1,4 +1,4 @@
-﻿import { MongoClient, Db, MongoClientOptions } from "mongodb";
+import { MongoClient, Db, MongoClientOptions } from "mongodb";
 import { env } from "../config/env.js";
 let client: MongoClient;
 export async function database(): Promise<Db> {
@@ -16,6 +16,8 @@ export async function ensureIndexes() {
     db.collection("users").createIndex({ email: 1 }, { unique: true }),
     db.collection("auth_sessions").createIndex({ tokenHash: 1 }, { unique: true }),
     db.collection("auth_sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection("realtime_events").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection("realtime_events").createIndex({ occurredAt: 1 }),
     db.collection("projects").createIndex({ "members.email": 1, updatedAt: -1 }),
     db.collection("github_pr_tasks").createIndex({ repository: 1, pullRequestNumber: 1 }, { unique: true, sparse: true }),
     db.collection("github_webhook_deliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
@@ -24,5 +26,3 @@ export async function ensureIndexes() {
     db.collection("audit_logs").createIndex({ at: -1 }),
   ]);
 }
-
-

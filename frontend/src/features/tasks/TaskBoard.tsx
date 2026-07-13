@@ -1,145 +1,25 @@
+﻿import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { useAsync } from "../../hooks/useAsync";
 import type { Task } from "../../types";
 import { TaskCard } from "../../components/TaskCard";
 import { CreateTask } from "./CreateTask";
 import { TaskDashboard } from "./TaskDashboard";
 import { TaskDetail } from "./TaskDetail";
-import { useState } from "react";
 import { TaskFilters, type TaskQuery } from "./TaskFilters";
 import { ServerDashboard } from "./ServerDashboard";
-
 type Page = { items: Task[]; total: number; page: number; pages: number };
-
+type StatusChange = { id: string; status: string };
+const statuses = ["todo", "in_review", "needs_changes", "ready", "done", "cancelled"];
+const labels: Record<string, string> = { todo: "📋 Cần làm", in_review: "🔍 Đang review", needs_changes: "⚠️ Cần sửa đổi", ready: "✅ Sẵn sàng", done: "🎉 Hoàn thành", cancelled: "🚫 Đã hủy" };
 export function TaskBoard() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [query, setQuery] = useState<TaskQuery>({ q: "", priority: "", project: "" });
-  const [page, setPage] = useState(1);
-  const params = new URLSearchParams({
-    ...Object.fromEntries(Object.entries(query).filter(([, value]) => value)),
-    page: String(page),
-    limit: "60",
-  });
-  const { data, error, refresh } = useAsync(() => api<Page>(`/tasks/search?${params}`), [query.q, query.priority, query.project, page]);
-  const tasks = data?.items || [];
-  const selected = tasks.find((task) => task._id === selectedId);
-
-  const changeQuery = (next: TaskQuery) => {
-    setPage(1);
-    setQuery(next);
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "todo": return "📋 Cần làm";
-      case "in_review": return "🔍 Đang review";
-      case "needs_changes": return "⚠️ Cần sửa đổi";
-      case "ready": return "✅ Sẵn sàng";
-      case "done": return "🎉 Hoàn thành";
-      case "cancelled": return "🚫 Đã hủy";
-      default: return status;
-    }
-  };
-
-  const statuses = ["todo", "in_review", "needs_changes", "ready", "done", "cancelled"];
-
-  return (
-    <main>
-      <header>
-        <h1>Bảng Nhiệm Vụ</h1>
-      </header>
-
-      <div className="grid-2">
-        <TaskDashboard tasks={tasks} />
-        <ServerDashboard />
-      </div>
-
-      <CreateTask onCreated={refresh} />
-      
-      <TaskFilters onChange={changeQuery} />
-
-      {error && <div className="error-message" style={{ margin: "1rem 0" }}>{error}</div>}
-
-      <section className="kanban-grid">
-        {statuses.map((status) => {
-          const colTasks = tasks.filter((t) => t.status === status);
-          return (
-            <div
-              key={status}
-              className="kanban-column"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={async (e) => {
-                const id = e.dataTransfer.getData("taskId");
-                if (id) {
-                  await api(`/tasks/${id}/status`, {
-                    method: "PATCH",
-                    body: JSON.stringify({ status }),
-                  });
-                  void refresh();
-                }
-              }}
-            >
-              <h2>
-                {getStatusLabel(status)}{" "}
-                <span className="counter">{colTasks.length}</span>
-              </h2>
-              {colTasks.map((task) => (
-                <TaskCard
-                  key={task._id}
-                  task={task}
-                  onStatus={async (value) => {
-                    await api(`/tasks/${task._id}/status`, {
-                      method: "PATCH",
-                      body: JSON.stringify({ status: value }),
-                    });
-                    void refresh();
-                  }}
-                  onOpen={() => setSelectedId(task._id)}
-                  onDelete={async () => {
-                    if (confirm(`Bạn chắc chắn muốn xóa nhiệm vụ "${task.title}"?`)) {
-                      await api(`/tasks/${task._id}`, { method: "DELETE" });
-                      void refresh();
-                    }
-                  }}
-                />
-              ))}
-            </div>
-          );
-        })}
-      </section>
-
-      <div className="filter-bar" style={{ justifyContent: "space-between", marginTop: "1rem" }}>
-        <span style={{ color: "var(--text-secondary)" }}>
-          Tổng số: <strong>{data?.total || 0}</strong> nhiệm vụ · Trang <strong>{page}</strong> / <strong>{data?.pages || 1}</strong>
-        </span>
-        <div className="flex-row" style={{ gap: "0.5rem" }}>
-          <button
-            className="btn-primary"
-            style={{ width: "auto", padding: "0.5rem 1rem" }}
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-          >
-            ◀ Trang trước
-          </button>
-          <button
-            className="btn-primary"
-            style={{ width: "auto", padding: "0.5rem 1rem" }}
-            disabled={!data || page >= data.pages}
-            onClick={() => setPage(page + 1)}
-          >
-            Trang sau ▶
-          </button>
-        </div>
-      </div>
-
-      {selected && (
-        <TaskDetail
-          task={selected}
-          onClose={() => setSelectedId(null)}
-          onChange={refresh}
-        />
-      )}
-    </main>
-  );
+  const client = useQueryClient(); const [selectedId, setSelectedId] = useState<string | null>(null); const [query, setQuery] = useState<TaskQuery>({ q: "", priority: "", project: "" }); const [page, setPage] = useState(1);
+  const params = new URLSearchParams({ ...Object.fromEntries(Object.entries(query).filter(([, value]) => value)), page: String(page), limit: "60" }); const queryKey = ["tasks", query, page] as const;
+  const tasksQuery = useQuery({ queryKey, queryFn: () => api<Page>(`/tasks/search?${params}`), refetchInterval: 60000 }); const data = tasksQuery.data; const tasks = data?.items || []; const selected = tasks.find((task) => task._id === selectedId);
+  const statusMutation = useMutation({ mutationFn: ({ id, status }: StatusChange) => api(`/tasks/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }), onMutate: async ({ id, status }) => { await client.cancelQueries({ queryKey: ["tasks"] }); const previous = client.getQueriesData<Page>({ queryKey: ["tasks"] }); client.setQueriesData<Page>({ queryKey: ["tasks"] }, (old) => old ? { ...old, items: old.items.map((task) => task._id === id ? { ...task, status } : task) } : old); return { previous }; }, onError: (_error, _variables, context) => { for (const [key, value] of context?.previous || []) client.setQueryData(key, value); }, onSettled: () => { void client.invalidateQueries({ queryKey: ["tasks"] }); void client.invalidateQueries({ queryKey: ["dashboard"] }); } });
+  const deleteMutation = useMutation({ mutationFn: (id: string) => api(`/tasks/${id}`, { method: "DELETE" }), onSuccess: () => { setSelectedId(null); void client.invalidateQueries({ queryKey: ["tasks"] }); void client.invalidateQueries({ queryKey: ["dashboard"] }); } });
+  const refresh = () => { void client.invalidateQueries({ queryKey: ["tasks"] }); void client.invalidateQueries({ queryKey: ["dashboard"] }); };
+  const changeQuery = (next: TaskQuery) => { setPage(1); setQuery(next); };
+  const error = tasksQuery.error || statusMutation.error || deleteMutation.error;
+  return <main><header><div><p className="eyebrow">Workspace</p><h1>Bảng nhiệm vụ</h1><p className="page-subtitle">Theo dõi tiến độ và cập nhật công việc theo thời gian thực.</p></div><CreateTask onCreated={refresh} /></header><div className="grid-2"><TaskDashboard tasks={tasks} /><ServerDashboard /></div><TaskFilters onChange={changeQuery} />{error && <div className="error-message" role="alert">{error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"}</div>}{statusMutation.isPending && <div className="toast-message">Đang đồng bộ thay đổi…</div>}{tasksQuery.isLoading ? <div className="kanban-loading">{statuses.map((status) => <div className="kanban-column skeleton-column" key={status}><span /><span /><span /></div>)}</div> : <section className="kanban-grid">{statuses.map((status) => { const column = tasks.filter((task) => task.status === status); return <div key={status} className="kanban-column" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { const id = event.dataTransfer.getData("taskId"); if (id) statusMutation.mutate({ id, status }); }}><h2>{labels[status]} <span className="counter">{column.length}</span></h2>{column.length === 0 && <div className="column-empty">Chưa có nhiệm vụ</div>}{column.map((task) => <TaskCard key={task._id} task={task} onStatus={(next) => statusMutation.mutate({ id: task._id, status: next })} onOpen={() => setSelectedId(task._id)} onDelete={() => { if (confirm(`Bạn chắc chắn muốn xóa nhiệm vụ "${task.title}"?`)) deleteMutation.mutate(task._id); }} />)}</div>; })}</section>}<div className="pagination-bar"><span>Tổng số <strong>{data?.total || 0}</strong> nhiệm vụ · Trang <strong>{page}</strong>/{data?.pages || 1}</span><div><button className="btn-secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>← Trang trước</button><button className="btn-primary" disabled={!data || page >= data.pages} onClick={() => setPage((value) => value + 1)}>Trang sau →</button></div></div>{selected && <TaskDetail task={selected} onClose={() => setSelectedId(null)} onChange={refresh} />}</main>;
 }
-

@@ -1,7 +1,6 @@
 ﻿import { randomUUID } from "crypto";
 import { database } from "./database.js";
-
-export async function audit(input: { actor?: string; action: string; target: string; metadata?: Record<string, unknown> }) {
-  await (await database()).collection<{ _id: string; actor?: string; action: string; target: string; metadata?: Record<string, unknown>; at: string }>("audit_logs").insertOne({ _id: randomUUID(), ...input, at: new Date().toISOString() });
-}
-
+import { logger } from "./logger.js";
+import { publishRealtimeEvent, type RealtimeEventType } from "../modules/realtime/realtime.service.js";
+const eventTypes: Record<string, RealtimeEventType> = { "task.create": "task.created", "task.update": "task.updated", "task.delete": "task.deleted", "task.status": "task.status_changed", "task.comment": "task.comment_added", "task.checklist.add": "task.checklist_updated", "task.checklist.update": "task.checklist_updated", "task.relations.update": "task.updated", "project.create": "project.updated", "project.update": "project.updated", "project.member.set": "project.member_updated", "user.create": "user.updated", "user.update": "user.updated", "dead_letter.retry": "operations.updated" };
+export async function audit(input: { actor?: string; action: string; target: string; metadata?: Record<string, unknown> }) { await (await database()).collection<{ _id: string; actor?: string; action: string; target: string; metadata?: Record<string, unknown>; at: string }>("audit_logs").insertOne({ _id: randomUUID(), ...input, at: new Date().toISOString() }); const type = eventTypes[input.action]; if (!type) return; try { let projectId = typeof input.metadata?.projectId === "string" ? input.metadata.projectId : undefined; if (!projectId && input.action.startsWith("task.") && input.action !== "task.delete") projectId = (await (await database()).collection<{ _id: string; projectId?: string }>("github_pr_tasks").findOne({ _id: input.target }, { projection: { projectId: 1 } }))?.projectId; await publishRealtimeEvent({ type, entityId: input.target, projectId: input.action.startsWith("project.") ? input.target : projectId, userId: input.action.startsWith("user.") ? input.target : undefined, actor: input.actor, payload: input.metadata }); } catch (error) { logger.warn("realtime_publish_after_audit_failed", { action: input.action, target: input.target, error }); } }

@@ -13,12 +13,14 @@
     "build:backend": "tsc -p tsconfig.backend.json",
     "lint": "eslint backend/src/**/*.{ts,tsx} frontend/src/**/*.{ts,tsx} --max-warnings=0",
     "typecheck": "tsc -p tsconfig.backend.json --noEmit && tsc -p frontend/tsconfig.json",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:realtime": "node scripts/realtime-smoke.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.2",
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
