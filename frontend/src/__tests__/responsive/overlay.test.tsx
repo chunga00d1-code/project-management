@@ -68,7 +68,7 @@ describe("Overlay", () => {
   });
 
   it("ignores hidden candidates, recovers external focus, and only closes from the backdrop", async () => {
-    const user=userEvent.setup(); const close=vi.fn(); renderAtViewport(<Overlay open title="Filter" onClose={close}><input type="hidden" /><button style={{display:"none"}}>Hidden</button><button>Visible</button></Overlay>,375);
+    const user=userEvent.setup(); const close=vi.fn(); renderAtViewport(<Overlay open title="Filter" onClose={close}><input type="hidden" /><button style={{display:"none"}}>Hidden</button><div hidden><button>Ancestor hidden</button></div><button>Visible</button></Overlay>,375);
     const outside=document.createElement("button");document.body.append(outside);outside.focus();await user.tab();expect(screen.getByRole("button",{name:"Close"})).toHaveFocus();
     await user.click(screen.getByText("Visible"));expect(close).not.toHaveBeenCalled();await user.click(document.querySelector(".overlay-backdrop")!);expect(close).toHaveBeenCalledOnce();outside.remove();
   });

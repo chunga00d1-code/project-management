@@ -8,13 +8,14 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState("");
   const [itemText, setItemText] = useState("");
+  const [editValid, setEditValid] = useState(true);
 
   const changed = () => {
     onChange();
   };
 
   return (
-    <Overlay open title={task.title} onClose={onClose} footer={isEditing ? <><button type="button" className="btn-danger" onClick={() => setIsEditing(false)}>Hủy bỏ</button><button form="edit-task-form" className="btn-primary">Lưu thay đổi</button></> : <button className="btn-close" onClick={onClose}>Đóng hộp thoại</button>}>
+    <Overlay open title={task.title} onClose={onClose} footer={isEditing ? <><button type="button" className="btn-danger" onClick={() => setIsEditing(false)}>Hủy bỏ</button><button form="edit-task-form" className="btn-primary" disabled={!editValid}>Lưu thay đổi</button></> : <button className="btn-close" onClick={onClose}>Đóng hộp thoại</button>}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
         <div>
           <h2>{task.title}</h2>
@@ -37,6 +38,7 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
       {isEditing ? (
         <EditTask
           task={task}
+          onValidityChange={setEditValid}
           onDone={() => {
             setIsEditing(false);
             changed();

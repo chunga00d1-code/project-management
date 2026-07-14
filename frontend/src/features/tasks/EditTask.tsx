@@ -9,7 +9,7 @@ const localDateTime = (value?: string) => {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 };
 
-export function EditTask({ task, onDone }: { task: Task; onDone: () => void }) {
+export function EditTask({ task, onDone, onValidityChange }: { task: Task; onDone: () => void; onValidityChange: (valid: boolean) => void }) {
   const [title, setTitle] = useState(task.title);
   const [assignee, setAssignee] = useState(task.assignee || "");
   const [priority, setPriority] = useState(task.priority);
@@ -23,6 +23,7 @@ export function EditTask({ task, onDone }: { task: Task; onDone: () => void }) {
   }, [task.projectId]);
 
   const invalidSchedule = Boolean(startAt && dueAt && new Date(dueAt).getTime() <= new Date(startAt).getTime());
+  useEffect(() => { onValidityChange(!invalidSchedule); }, [invalidSchedule, onValidityChange]);
   return (
     <form id="edit-task-form" style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }} onSubmit={async (event) => {
       event.preventDefault();

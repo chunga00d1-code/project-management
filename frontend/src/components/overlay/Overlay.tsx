@@ -46,8 +46,11 @@ export function Overlay({ open, title, onClose, children, footer, initialFocusRe
       if (event.key !== "Tab") return;
       const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? []).filter((element) => {
         if (element instanceof HTMLInputElement && element.type === "hidden") return false;
-        const style = window.getComputedStyle(element);
-        return !element.hidden && style.display !== "none" && style.visibility !== "hidden";
+        for (let node: HTMLElement | null = element; node && node !== dialogRef.current; node = node.parentElement) {
+          const style = window.getComputedStyle(node);
+          if (node.hidden || node.getAttribute("aria-hidden") === "true" || style.display === "none" || style.visibility === "hidden") return false;
+        }
+        return true;
       });
       if (!focusable.length) { event.preventDefault(); dialogRef.current?.focus(); return; }
       const first = focusable[0];
