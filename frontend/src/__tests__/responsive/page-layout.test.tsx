@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { PageHeader, ResponsiveGrid } from "../../components/layout/PageLayout";
+import { PageContainer, PageHeader, ResponsiveGrid } from "../../components/layout/PageLayout";
 import { renderAtViewport } from "../../test/renderAtViewport";
 
 describe("page layout primitives", () => {
@@ -28,5 +28,24 @@ describe("page layout primitives", () => {
       768,
     );
     expect(container.firstChild).toHaveStyle({ "--grid-min": "14rem" });
+  });
+
+  it("forwards standard attributes and class names to semantic page elements", () => {
+    renderAtViewport(
+      <>
+        <PageHeader title="Thuộc tính" className="custom-header" id="page-heading" aria-describedby="page-help" />
+        <PageContainer className="custom-page" id="page-content" aria-label="Nội dung chính">
+          Content
+        </PageContainer>
+      </>,
+      1024,
+    );
+
+    const header = screen.getByRole("heading", { name: "Thuộc tính" }).closest("header");
+    expect(header).toHaveClass("page-header", "custom-header");
+    expect(header).toHaveAttribute("id", "page-heading");
+    expect(header).toHaveAttribute("aria-describedby", "page-help");
+    expect(screen.getByRole("main", { name: "Nội dung chính" })).toHaveClass("page-container", "custom-page");
+    expect(screen.getByRole("main", { name: "Nội dung chính" })).toHaveAttribute("id", "page-content");
   });
 });
