@@ -3,6 +3,7 @@
 export type Priority = "low" | "medium" | "high" | "urgent";
 export interface TaskModel {
   _id: string;
+  code: string;
   title: string;
   description: string;
   assignee: string;
@@ -22,6 +23,8 @@ export interface TaskModel {
   dependencies: string[];
   watchers: string[];
   deadlineNotificationKeys?: string[];
+  prSyncStatus?: "matched" | "mismatched";
+  prMismatchReasons?: string[];
   createdAt: string;
   updatedAt: string;
 }

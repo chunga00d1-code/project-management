@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { Project } from "../auth/Projects";
+import type { Task } from "../../types";
 export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+  const [createdCode, setCreatedCode] = useState("");
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
@@ -25,7 +27,7 @@ export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onC
       style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "100%" }}
       onSubmit={async (e) => {
         e.preventDefault();
-        await api("/tasks", {
+        const created = await api<Task>("/tasks", {
           method: "POST",
           body: JSON.stringify({
             title,
@@ -43,9 +45,19 @@ export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onC
         setLabels("");
         setSprint("");
         setTeam("");
-        onCreated();
+        setCreatedCode(created.code || "");
       }}
     >
+      {createdCode && (
+        <div className="toast-message" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
+          <span>
+            ✅ Đã tạo <strong>{createdCode}</strong> — dán mã này vào tiêu đề hoặc mô tả Pull Request tương ứng.
+          </span>
+          <button type="button" className="btn-primary" style={{ width: "auto" }} onClick={onCreated}>
+            Xong
+          </button>
+        </div>
+      )}
       <div className="grid-2">
         <div>
           <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Tiêu đề nhiệm vụ *</label>

@@ -22,6 +22,7 @@ export async function ensureIndexes() {
     db.collection("projects").createIndex({ repositoryFullName: 1 }, { unique: true, sparse: true }),
     db.collection("github_installations").createIndex({ repositories: 1 }),
     db.collection("github_pr_tasks").createIndex({ repository: 1, pullRequestNumber: 1 }, { unique: true, sparse: true }),
+    db.collection("github_pr_tasks").createIndex({ code: 1 }, { unique: true, sparse: true }),
     db.collection("github_webhook_deliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection("github_pr_retry_jobs").createIndex({ nextRunAt: 1, lockedUntil: 1 }),
     db.collection("github_pr_dead_letter_jobs").createIndex({ failedAt: -1 }),

@@ -6,6 +6,7 @@ export interface User {
 }
 export interface Task {
   _id: string;
+  code?: string;
   title: string;
   description: string;
   assignee: string;
@@ -21,6 +22,8 @@ export interface Task {
   checklist?: { id: string; text: string; done: boolean; createdAt: string }[];
   dependencies?: string[];
   watchers?: string[];
+  prSyncStatus?: "matched" | "mismatched";
+  prMismatchReasons?: string[];
 }
 
 

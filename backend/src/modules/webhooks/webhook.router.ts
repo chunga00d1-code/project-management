@@ -2,7 +2,7 @@ import { Router } from "express";
 import { env } from "../../config/env.js";
 import { audit } from "../../core/audit.service.js";
 import { verifySignature, reviewDiff } from "../reviews/review.service.js";
-import { notifyReview } from "../notifications/notification.service.js";
+import { notifyReview, notifyMismatch } from "../notifications/notification.service.js";
 import { TaskService } from "../tasks/task.service.js";
 import { retryQueue } from "../jobs/retry-queue.service.js";
 import { SettingsService } from "../settings/settings.service.js";
@@ -11,11 +11,14 @@ import { getPullRequestFiles } from "./github-files.service.js";
 import { InstallationService } from "../github-app/installation.model.js";
 import { ProjectLinkService } from "../github-app/project-link.service.js";
 import { getInstallationToken } from "../github-app/github-app.service.js";
+import { ProjectService } from "../projects/project.service.js";
 const tasks = new TaskService();
 const settings = new SettingsService();
 const deliveries = new DeliveryService();
 const installations = new InstallationService();
 const projectLinks = new ProjectLinkService();
+const projects = new ProjectService();
+const TASK_CODE_PATTERN = /TASK-\d+/i;
 export const webhookRouter = Router();
 interface InstallationPayload {
   action: string;
@@ -75,6 +78,7 @@ webhookRouter.post("/github", async (req, res, next) => {
       pull_request: {
         number: number;
         title: string;
+        body?: string | null;
         html_url: string;
         comments_url: string;
         merged?: boolean;
@@ -120,6 +124,18 @@ webhookRouter.post("/github", async (req, res, next) => {
       return res.json({ received: true, duplicate: true });
     const pr = payload.pull_request;
     const githubToken = await resolveGithubToken(payload.repository.full_name);
+    const postGithubComment = async (text: string) => {
+      const comment = await fetch(pr.comments_url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${githubToken}`,
+          accept: "application/vnd.github+json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ body: text }),
+      });
+      if (!comment.ok) throw new Error(`GitHub comment HTTP ${comment.status}`);
+    };
     const findings = await reviewDiff(
       await getPullRequestFiles(payload.repository.url, pr.number, 10, githubToken),
     );
@@ -149,27 +165,114 @@ webhookRouter.post("/github", async (req, res, next) => {
       findings
         .map((f) => `[${f.severity}] ${f.file}: ${f.message}`)
         .join("\n") || "No findings";
-    const syncedTask = await tasks.upsertPullRequest({
-      repository: payload.repository.full_name,
-      number: pr.number,
-      title: pr.title,
-      url: pr.html_url,
-      status,
-      summary,
-      assignee,
-    });
-    if (syncedTask) await audit({ actor: "github-webhook", action: "task.update", target: syncedTask._id, metadata: { projectId: syncedTask.projectId, repository: payload.repository.full_name, pullRequestNumber: pr.number } });
-    if (runtime.postReviewComment) {
-      const comment = await fetch(pr.comments_url, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${githubToken}`,
-          accept: "application/vnd.github+json",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ body: `## Automated review\n${summary}` }),
+    const taskCodeMatch = `${pr.title} ${pr.body || ""}`.match(TASK_CODE_PATTERN);
+    if (!taskCodeMatch) {
+      await postGithubComment(
+        "⚠️ Không tìm thấy mã Task (vd `TASK-123`) trong tiêu đề/mô tả PR. Vui lòng bổ sung mã Task để hệ thống có thể đối chiếu.",
+      );
+      try {
+        await notifyMismatch(
+          "(unknown)",
+          payload.repository.full_name,
+          pr.number,
+          pr.html_url,
+          ["missing_task_code"],
+          runtime,
+        );
+      } catch {
+        /* best-effort */
+      }
+      await audit({
+        actor: "github-webhook",
+        action: "task.pr.mismatch",
+        target: `${payload.repository.full_name}#${pr.number}`,
+        metadata: { reasons: ["missing_task_code"] },
       });
-      if (!comment.ok) throw new Error(`GitHub comment HTTP ${comment.status}`);
+    } else {
+      const taskCode = taskCodeMatch[0].toUpperCase();
+      const task = await tasks.findByCode(taskCode);
+      if (!task) {
+        await postGithubComment(
+          `⚠️ Không tìm thấy Task ${taskCode}. Vui lòng kiểm tra lại mã Task.`,
+        );
+        try {
+          await notifyMismatch(
+            taskCode,
+            payload.repository.full_name,
+            pr.number,
+            pr.html_url,
+            ["task_not_found"],
+            runtime,
+          );
+        } catch {
+          /* best-effort */
+        }
+        await audit({
+          actor: "github-webhook",
+          action: "task.pr.mismatch",
+          target: taskCode,
+          metadata: { reasons: ["task_not_found"] },
+        });
+      } else {
+        const reasons: string[] = [];
+        const project = task.projectId ? await projects.findById(task.projectId) : null;
+        if (!project || project.repositoryFullName !== payload.repository.full_name)
+          reasons.push("project_mismatch");
+        if (task.assignee && assignee && task.assignee.toLowerCase() !== assignee.toLowerCase())
+          reasons.push("assignee_mismatch");
+        if (
+          task.dueDate &&
+          task.dueDate < new Date().toISOString().slice(0, 10) &&
+          !["done", "cancelled"].includes(task.status)
+        )
+          reasons.push("overdue");
+        const syncedTask = await tasks.linkPullRequest(task._id, {
+          repository: payload.repository.full_name,
+          number: pr.number,
+          status,
+          description: summary,
+          prSyncStatus: reasons.length ? "mismatched" : "matched",
+          prMismatchReasons: reasons,
+        });
+        if (syncedTask)
+          await audit({
+            actor: "github-webhook",
+            action: "task.update",
+            target: syncedTask._id,
+            metadata: {
+              projectId: syncedTask.projectId,
+              repository: payload.repository.full_name,
+              pullRequestNumber: pr.number,
+              prSyncStatus: syncedTask.prSyncStatus,
+            },
+          });
+        if (reasons.length) {
+          await postGithubComment(
+            `⚠️ Task ${taskCode} không khớp với PR này:\n${reasons.map((r) => `- ${r}`).join("\n")}`,
+          );
+          try {
+            await notifyMismatch(
+              taskCode,
+              payload.repository.full_name,
+              pr.number,
+              pr.html_url,
+              reasons,
+              runtime,
+            );
+          } catch {
+            /* best-effort */
+          }
+          await audit({
+            actor: "github-webhook",
+            action: "task.pr.mismatch",
+            target: task._id,
+            metadata: { reasons },
+          });
+        }
+      }
+    }
+    if (runtime.postReviewComment) {
+      await postGithubComment(`## Automated review\n${summary}`);
     }
     try {
       await notifyReview(
