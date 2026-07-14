@@ -23,6 +23,12 @@ export function AppShell<PageId extends string>({ items, activePage, onNavigate,
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+      if (!drawerRef.current?.contains(activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
@@ -37,7 +43,7 @@ export function AppShell<PageId extends string>({ items, activePage, onNavigate,
     <div className="sidebar-footer"><div className="user-chip"><span className="avatar">{(user.email || "U").charAt(0).toUpperCase()}</span><span><strong>{user.email || "Người dùng"}</strong><small>{user.role || "member"}</small></span></div><button className="sign-out" onClick={onSignOut}><span className="nav-icon" aria-hidden="true">↪</span>Đăng xuất</button></div>
   </>;
   return <div className="app-shell">
-    {isDrawerLayout ? <><header className="mobile-app-header"><span aria-hidden="true"><ReviewGridLogo compact /></span><button ref={triggerRef} type="button" aria-label="Mở điều hướng" onClick={() => setDrawerOpen(true)}>☰</button></header>{drawerOpen && <><button className="app-drawer-backdrop" type="button" aria-label="Đóng điều hướng" onClick={() => setDrawerOpen(false)} /><div ref={drawerRef} className="app-drawer" role="dialog" aria-modal="true" aria-label="Điều hướng chính"><button className="app-drawer__close" type="button" aria-label="Đóng điều hướng" onClick={() => setDrawerOpen(false)}>×</button><nav className="sidebar" aria-label="Điều hướng chính">{navigationContent}</nav></div></>}</> : <nav className="sidebar desktop-sidebar" aria-label="Điều hướng chính">{navigationContent}</nav>}
+    {isDrawerLayout ? <><header className="mobile-app-header"><span aria-hidden="true"><ReviewGridLogo compact /></span><button ref={triggerRef} type="button" aria-label="Mở điều hướng" aria-expanded={drawerOpen} aria-controls="app-navigation-drawer" onClick={() => setDrawerOpen(true)}>☰</button></header>{drawerOpen && <><div className="app-drawer-backdrop" aria-hidden="true" onClick={() => setDrawerOpen(false)} /><div id="app-navigation-drawer" ref={drawerRef} className="app-drawer" role="dialog" aria-modal="true" aria-label="Điều hướng chính"><button className="app-drawer__close" type="button" aria-label="Đóng điều hướng" onClick={() => setDrawerOpen(false)}>×</button><nav className="sidebar" aria-label="Điều hướng chính">{navigationContent}</nav></div></>}</> : <nav className="sidebar desktop-sidebar" aria-label="Điều hướng chính">{navigationContent}</nav>}
     <div className="app-shell__content" role="region" aria-label="Nội dung chính">{children}</div>
   </div>;
 }
