@@ -6,7 +6,9 @@ import { TaskCard } from "../../components/TaskCard";
 import { CreateTask } from "./CreateTask";
 import { TaskDashboard } from "./TaskDashboard";
 import { TaskDetail } from "./TaskDetail";
-import { TaskFilters, type TaskQuery } from "./TaskFilters";
+import { emptyTaskQuery, TaskFilters, type TaskQuery } from "./TaskFilters";
+import { KanbanStatusSwitcher } from "./KanbanStatusSwitcher";
+import { useIsCompact, useIsMobileLayout } from "../../hooks/useMediaQuery";
 import { ServerDashboard } from "./ServerDashboard";
 type Page = { items: Task[]; total: number; page: number; pages: number };
 type StatusChange = { id: string; status: string };
@@ -14,9 +16,13 @@ const statuses = ["todo", "in_review", "needs_changes", "ready", "done", "cancel
 const labels: Record<string, string> = { todo: "📋 Cần làm", in_review: "🔍 Đang review", needs_changes: "⚠️ Cần sửa đổi", ready: "✅ Sẵn sàng", done: "🎉 Hoàn thành", cancelled: "🚫 Đã hủy" };
 export function TaskBoard() {
   const client = useQueryClient();
+  const isMobile = useIsMobileLayout();
+  const isCompact = useIsCompact();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [query, setQuery] = useState<TaskQuery>({ q: "", priority: "", project: "" });
+  const [query, setQuery] = useState<TaskQuery>(emptyTaskQuery);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [activeStatus, setActiveStatus] = useState(statuses[0]);
   const [page, setPage] = useState(1);
   const params = new URLSearchParams({ ...Object.fromEntries(Object.entries(query).filter(([, value]) => value)), page: String(page), limit: "60" });
   const queryKey = ["tasks", query, page] as const;
@@ -29,6 +35,8 @@ export function TaskBoard() {
   const refresh = () => { void client.invalidateQueries({ queryKey: ["tasks"] }); void client.invalidateQueries({ queryKey: ["dashboard"] }); };
   const changeQuery = (next: TaskQuery) => { setPage(1); setQuery(next); };
   const error = tasksQuery.error || statusMutation.error || deleteMutation.error;
+  const statusOptions = statuses.map((id) => ({ id, label: labels[id], count: tasks.filter((task) => task.status === id).length }));
+  const visibleStatuses = isMobile ? statuses.filter((status) => status === activeStatus) : statuses;
 
   return (
     <main>
@@ -48,7 +56,8 @@ export function TaskBoard() {
         <ServerDashboard />
       </div>
 
-      <TaskFilters onChange={changeQuery} />
+      <TaskFilters value={query} onChange={changeQuery} mobileOpen={filtersOpen} onMobileOpenChange={setFiltersOpen} />
+      {isMobile && <KanbanStatusSwitcher statuses={statusOptions} activeStatus={activeStatus} onChange={setActiveStatus} compact={isCompact} />}
 
       {error && <div className="error-message" role="alert">{error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"}</div>}
       {statusMutation.isPending && <div className="toast-message">Đang đồng bộ thay đổi…</div>}
@@ -65,12 +74,15 @@ export function TaskBoard() {
         </div>
       ) : (
         <section className="kanban-grid">
-          {statuses.map((status) => {
+          {visibleStatuses.map((status) => {
             const column = tasks.filter((task) => task.status === status);
             return (
               <div
                 key={status}
                 className="kanban-column"
+                id={`kanban-panel-${status}`}
+                role={isMobile ? "tabpanel" : undefined}
+                aria-labelledby={isMobile ? `kanban-tab-${status}` : undefined}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                   const id = event.dataTransfer.getData("taskId");

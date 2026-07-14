@@ -1,0 +1,19 @@
+﻿/* Task filters and Kanban feature layout */
+.filter-bar { display:grid; grid-template-columns:minmax(240px,2fr) minmax(150px,1fr) minmax(170px,1fr) auto; align-items:end; gap:1rem; padding:1rem; position:sticky; top:1rem; z-index:10; box-shadow:var(--shadow-md); backdrop-filter:blur(18px); background:var(--bg-glass); border:1px solid var(--border-color); border-radius:var(--radius-lg); }
+.filter-bar label { display:flex; min-width:0; flex-direction:column; gap:.4rem; }
+.filter-bar label > span,.status-control > span,.kanban-status-select > span { color:var(--text-muted); font-size:.72rem; font-weight:700; letter-spacing:.055em; text-transform:uppercase; }
+.clear-filter { white-space:nowrap; }
+.filter-trigger { width:100%; }
+.kanban-status-tabs { display:flex; gap:.5rem; max-width:100%; overflow-x:auto; padding:.2rem .1rem .45rem; scrollbar-width:thin; }
+.kanban-status-tabs [role="tab"] { display:flex; flex:0 0 auto; align-items:center; gap:.5rem; background:var(--bg-secondary); border-color:var(--border-color); white-space:nowrap; }
+.kanban-status-tabs [aria-selected="true"] { border-color:var(--primary-color); background:var(--primary-glow); }
+.kanban-status-tabs .counter { padding:.12rem .42rem; border-radius:99px; background:var(--badge-bg); }
+.kanban-status-select { display:grid; gap:.4rem; }
+.kanban-grid { display:grid; grid-template-columns:repeat(6,minmax(275px,1fr)); gap:1.25rem; align-items:start; overflow-x:auto; margin-inline:-.35rem; padding:.35rem .35rem 1.4rem; scroll-snap-type:x proximity; }
+.kanban-column { min-height:420px; max-height:calc(100vh - 170px); padding:1rem; scroll-snap-align:start; }
+.task-action-menu { position:relative; }
+.task-action-menu > [role="menu"] { position:absolute; right:0; bottom:calc(100% + .35rem); z-index:20; min-width:150px; padding:.35rem; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--bg-secondary); box-shadow:var(--shadow-lg); }
+.task-action-menu [role="menuitem"] { width:100%; min-height:44px; padding:.65rem; font-size:.82rem; }
+@media (max-width:1100px) { .filter-bar { grid-template-columns:1fr 1fr; } .clear-filter { width:100%; } }
+@media (max-width:767px) { .filter-bar { position:static; grid-template-columns:1fr; border:0; box-shadow:none; padding:0; background:transparent; backdrop-filter:none; } .kanban-grid { display:block; margin:0; padding:0; overflow:visible; } .kanban-column { width:100%; min-height:320px; max-height:none; } }
+@media (max-width:479px) { .kanban-status-select select { width:100%; } }

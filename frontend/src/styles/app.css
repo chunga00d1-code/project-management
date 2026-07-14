@@ -1,5 +1,6 @@
 @import './foundation.css';
 @import './primitives.css';
+@import './features.css';
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
@@ -218,11 +219,6 @@ form.login-form .error-message {
 @media (max-width: 1200px) {
   .kanban-grid {
     grid-template-columns: repeat(3, 1fr);
-  }
-}
-@media (max-width: 768px) {
-  .kanban-grid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -666,8 +662,8 @@ article.task-card button.task-title:hover { color: #a5b4fc; }
 .card-actions .btn-icon-danger:hover { background: #ef4444; color: white; }
 .error-message { padding: .8rem 1rem; border: 1px solid rgba(239,68,68,.22); border-radius: var(--radius-md); background: rgba(239,68,68,.09); color: #fca5a5; }
 @media (max-width: 1100px) { .filter-bar { grid-template-columns: 1fr 1fr; } .clear-filter { width: 100%; } }
-@media (max-width: 900px) { .kanban-column { max-height: none; } }
-@media (max-width: 640px) { .filter-bar { position: static; grid-template-columns: 1fr; } .kanban-grid { grid-template-columns: repeat(6, minmax(84vw, 1fr)); } main header h1 { font-size: 1.55rem; } .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; } dialog { width: 96%; padding: 1.25rem; } }
+
+@media (max-width: 640px) { main header h1 { font-size: 1.55rem; } .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; } dialog { width: 96%; padding: 1.25rem; } }
 
 /* Realtime and query states */
 .realtime-status { position: fixed; right: 1rem; bottom: 1rem; z-index: 1000; display: flex; align-items: center; gap: .45rem; padding: .48rem .72rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-glass); color: var(--text-secondary); box-shadow: var(--shadow-md); backdrop-filter: blur(12px); font-size: .72rem; font-weight: 700; }
