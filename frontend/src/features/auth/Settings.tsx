@@ -48,10 +48,11 @@ export function Settings() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     try {
+      const { hasTelegramToken: _hasTelegramToken, hasSmtpPassword: _hasSmtpPassword, ...rest } = value;
       await api("/settings", {
         method: "PUT",
         body: JSON.stringify({
-          ...value,
+          ...rest,
           blockingSeverities: Array.isArray(value.blockingSeverities)
             ? value.blockingSeverities
             : String(value.blockingSeverities || "").split(",").map(x => x.trim()).filter(Boolean),
