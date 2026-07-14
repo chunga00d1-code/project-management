@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { ActionBar } from "../../components/layout/PageLayout";
 type Settings = {
   telegramToken?: string;
   telegramChatId?: string;
@@ -45,12 +46,6 @@ export function Settings() {
       <header>
         <h2>Cấu Hình Hệ Thống</h2>
       </header>
-
-      {message && (
-        <div className="pill active" style={{ alignSelf: "flex-start", padding: "0.5rem 1rem", marginBottom: "1rem" }}>
-          {message}
-        </div>
-      )}
 
       <form className="project-card" style={{ maxWidth: "100%", display: "flex", flexDirection: "column", gap: "1.5rem" }} onSubmit={save}>
         
@@ -143,10 +138,7 @@ export function Settings() {
             </div>
           </div>
         </div>
-
-        <button className="btn-primary" style={{ alignSelf: "flex-end", width: "auto", padding: "0.75rem 2rem" }}>
-          💾 Lưu cấu hình
-        </button>
+        <ActionBar className="action-bar--sticky">{message && <div className="pill active" role={message.includes("thất bại") ? "alert" : "status"}>{message}</div>}<button className="btn-primary">💾 Lưu cấu hình</button></ActionBar>
       </form>
     </main>
   );

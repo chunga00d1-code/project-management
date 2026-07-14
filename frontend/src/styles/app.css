@@ -635,7 +635,7 @@ article.project-card, .list-container li {
 .user-chip strong { font-size: .77rem; }
 .user-chip small { color: var(--text-muted); font-size: .7rem; text-transform: capitalize; }
 nav.sidebar button.sign-out { margin-top: 0; }
-button { min-height: 42px; padding: .65rem 1rem; border: 1px solid transparent; border-radius: var(--radius-md); color: var(--text-primary); font: inherit; font-weight: 650; cursor: pointer; transition: var(--transition-smooth); }
+button { min-height: var(--control-min-height); padding: .65rem 1rem; border: 1px solid transparent; border-radius: var(--radius-md); color: var(--text-primary); font: inherit; font-weight: 650; cursor: pointer; transition: var(--transition-smooth); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 .btn-secondary { background: rgba(255,255,255,.055); border-color: var(--border-color); color: var(--text-secondary); }
 .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,.1); color: var(--text-primary); }

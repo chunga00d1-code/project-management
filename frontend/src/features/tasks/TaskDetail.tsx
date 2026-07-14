@@ -14,7 +14,7 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
   };
 
   return (
-    <Overlay open title={task.title} onClose={onClose}>
+    <Overlay open title={task.title} onClose={onClose} footer={isEditing ? <><button type="button" className="btn-danger" onClick={() => setIsEditing(false)}>Hủy bỏ</button><button form="edit-task-form" className="btn-primary">Lưu thay đổi</button></> : <button className="btn-close" onClick={onClose}>Đóng hộp thoại</button>}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
         <div>
           <h2>{task.title}</h2>
@@ -41,7 +41,6 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
             setIsEditing(false);
             changed();
           }}
-          onCancel={() => setIsEditing(false)}
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -196,10 +195,6 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
           </div>
         </div>
       )}
-
-      <button className="btn-close" onClick={onClose}>
-        Đóng hộp thoại
-      </button>
     </Overlay>
   );
 }
