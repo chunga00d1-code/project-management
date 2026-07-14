@@ -155,7 +155,7 @@ webhookRouter.post("/github", async (req, res, next) => {
       pr.assignee?.login || pr.requested_reviewers?.[0]?.login || "";
     const assignee =
       String(runtime.githubAssigneeMappings || "")
-        .split(/\\r?\\n|,/)
+        .split(/\r?\n|,/)
         .map((line: string) => line.split("=").map((x) => x.trim()))
         .find(
           (pair: string[]) =>
