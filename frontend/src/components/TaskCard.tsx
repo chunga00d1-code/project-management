@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Task } from "../types";
 import { useIsMobileLayout } from "../hooks/useMediaQuery";
 
@@ -8,13 +8,20 @@ export function TaskCard({ task, onStatus, onOpen, onDelete }: { task: Task; onS
   const mobile = useIsMobileLayout();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const firstMenuItemRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!menuOpen) return;
-    const close = (event: MouseEvent) => { if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false); };
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
-    document.addEventListener("mousedown", close); document.addEventListener("keydown", escape);
-    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", escape); };
+    firstMenuItemRef.current?.focus();
+    const closeOutside = (event: MouseEvent) => { if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false); };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); setMenuOpen(false); menuTriggerRef.current?.focus(); }
+      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) { event.preventDefault(); firstMenuItemRef.current?.focus(); }
+    };
+    document.addEventListener("mousedown", closeOutside); document.addEventListener("keydown", handleKey);
+    return () => { document.removeEventListener("mousedown", closeOutside); document.removeEventListener("keydown", handleKey); };
   }, [menuOpen]);
+  const chooseDelete = () => { setMenuOpen(false); onDelete(); menuTriggerRef.current?.focus(); };
   const checklist = task.checklist || []; const completed = checklist.filter((item) => item.done).length; const due = deadline(task);
   const overdue = Boolean(due && new Date(due).getTime() < Date.now() && !["done", "cancelled"].includes(task.status));
   return <article className={`task-card priority-${task.priority}`} draggable={!mobile} onDragStart={(event) => event.dataTransfer.setData("taskId", task._id)}>
@@ -25,6 +32,6 @@ export function TaskCard({ task, onStatus, onOpen, onDelete }: { task: Task; onS
     {task.labels.length > 0 && <div className="label-row">{task.labels.slice(0, 3).map((label) => <span key={label}>#{label}</span>)}</div>}
     {checklist.length > 0 && <div className="checklist-progress"><div><span>Checklist</span><strong>{completed}/{checklist.length}</strong></div><progress max={checklist.length} value={completed} /></div>}
     <label className="status-control"><span>Trạng thái</span><select value={task.status} onChange={(event) => onStatus(event.target.value)}>{["todo", "in_review", "needs_changes", "ready", "done", "cancelled"].map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}</select></label>
-    <div className="card-actions"><button className="btn-details" onClick={onOpen}>Xem chi tiết</button>{mobile ? <div className="task-action-menu" ref={menuRef}><button type="button" className="btn-secondary" aria-label="Thêm thao tác" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>•••</button>{menuOpen && <div role="menu"><button type="button" role="menuitem" className="btn-icon-danger" aria-label={`Xóa ${task.title}`} onClick={() => { setMenuOpen(false); onDelete(); }}>Xóa nhiệm vụ</button></div>}</div> : <button className="btn-icon-danger" aria-label={`Xóa ${task.title}`} onClick={onDelete}>×</button>}</div>
+    <div className="card-actions"><button className="btn-details" onClick={onOpen}>Xem chi tiết</button>{mobile ? <div className="task-action-menu" ref={menuRef}><button ref={menuTriggerRef} type="button" className="btn-secondary" aria-label="Thêm thao tác" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>•••</button>{menuOpen && <div role="menu"><button ref={firstMenuItemRef} type="button" role="menuitem" className="btn-icon-danger" aria-label={`Xóa ${task.title}`} onClick={chooseDelete}>Xóa nhiệm vụ</button></div>}</div> : <button className="btn-icon-danger" aria-label={`Xóa ${task.title}`} onClick={onDelete}>×</button>}</div>
   </article>;
 }

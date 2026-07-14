@@ -37,6 +37,7 @@ export function TaskBoard() {
   const error = tasksQuery.error || statusMutation.error || deleteMutation.error;
   const statusOptions = statuses.map((id) => ({ id, label: labels[id], count: tasks.filter((task) => task.status === id).length }));
   const visibleStatuses = isMobile ? statuses.filter((status) => status === activeStatus) : statuses;
+  const usesStatusTabs = isMobile && !isCompact;
 
   return (
     <main>
@@ -64,7 +65,7 @@ export function TaskBoard() {
 
       {tasksQuery.isLoading ? (
         <div className="kanban-loading">
-          {statuses.map((status) => (
+          {visibleStatuses.map((status) => (
             <div className="kanban-column skeleton-column" key={status}>
               <span />
               <span />
@@ -81,15 +82,15 @@ export function TaskBoard() {
                 key={status}
                 className="kanban-column"
                 id={`kanban-panel-${status}`}
-                role={isMobile ? "tabpanel" : undefined}
-                aria-labelledby={isMobile ? `kanban-tab-${status}` : undefined}
+                role={usesStatusTabs ? "tabpanel" : isCompact ? "region" : undefined}
+                aria-labelledby={usesStatusTabs ? `kanban-tab-${status}` : isCompact ? `kanban-heading-${status}` : undefined}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                   const id = event.dataTransfer.getData("taskId");
                   if (id) statusMutation.mutate({ id, status });
                 }}
               >
-                <h2>
+                <h2 id={`kanban-heading-${status}`}>
                   {labels[status]} <span className="counter">{column.length}</span>
                 </h2>
                 {column.length === 0 && <div className="column-empty">Chưa có nhiệm vụ</div>}
