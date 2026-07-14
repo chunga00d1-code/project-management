@@ -23,16 +23,20 @@ export function Settings() {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    await api("/settings", {
-      method: "PUT",
-      body: JSON.stringify({
-        ...value,
-        blockingSeverities: Array.isArray(value.blockingSeverities)
-          ? value.blockingSeverities
-          : String(value.blockingSeverities || "").split(",").map(x => x.trim()).filter(Boolean),
-      }),
-    });
-    setMessage("Cấu hình đã được lưu thành công!");
+    try {
+      await api("/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          ...value,
+          blockingSeverities: Array.isArray(value.blockingSeverities)
+            ? value.blockingSeverities
+            : String(value.blockingSeverities || "").split(",").map(x => x.trim()).filter(Boolean),
+        }),
+      });
+      setMessage("Cấu hình đã được lưu thành công!");
+    } catch (err) {
+      setMessage(`Lưu cấu hình thất bại: ${err instanceof Error ? err.message : String(err)}`);
+    }
     setTimeout(() => setMessage(""), 3000);
   }
 
@@ -137,57 +141,6 @@ export function Settings() {
                 onChange={(e) => setValue({ ...value, emailTo: e.target.value })}
               />
             </div>
-          </div>
-        </div>
-
-        {/* Section 3: GitHub Integration Details */}
-        <div>
-          <h3 style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", marginBottom: "1rem" }}>
-            🐙 Tích hợp GitHub & Quy tắc
-          </h3>
-          <div className="grid-2">
-            <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>
-                Mức độ nghiêm trọng chặn PR (cách nhau bằng dấu phẩy)
-              </label>
-              <input
-                placeholder="VD: critical,high"
-                value={
-                  Array.isArray(value.blockingSeverities)
-                    ? value.blockingSeverities.join(",")
-                    : ""
-                }
-                onChange={(e) =>
-                  setValue({ ...value, blockingSeverities: e.target.value.split(",") })
-                }
-              />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>
-                Ánh xạ Assignee trên GitHub sang Email hệ thống
-              </label>
-              <textarea
-                placeholder="github-username=user@email.com (mỗi dòng một ánh xạ)"
-                value={value.githubAssigneeMappings || ""}
-                onChange={(e) =>
-                  setValue({ ...value, githubAssigneeMappings: e.target.value })
-                }
-                style={{ minHeight: "80px" }}
-              />
-            </div>
-          </div>
-          <div style={{ marginTop: "1rem" }}>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={Boolean(value.postReviewComment)}
-                onChange={(e) =>
-                  setValue({ ...value, postReviewComment: e.target.checked })
-                }
-                style={{ width: "1.2rem", height: "1.2rem", accentColor: "var(--primary-color)" }}
-              />
-              <span>Tự động viết bình luận rà duyệt (review comment) lên Pull Request trên GitHub</span>
-            </label>
           </div>
         </div>
 
