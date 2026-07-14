@@ -4,6 +4,7 @@ import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
 import { ServerDashboard } from "../tasks/ServerDashboard";
 import type { Task } from "../../types";
 import type { Project } from "../auth/Projects";
+import { PageContainer, PageHeader, ResponsiveGrid } from "../../components/layout/PageLayout";
 
 const statusLabels: Record<string, string> = {
   todo: "📋 Cần làm",
@@ -63,30 +64,24 @@ export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "project
   ).sort((a, b) => b[1] - a[1]);
 
   return (
-    <main>
-      <header>
-        <div>
-          <p className="eyebrow">Workspace</p>
-          <h1>Tổng quan</h1>
-          <p className="page-subtitle">Bức tranh toàn cảnh về dự án, nhiệm vụ và các cảnh báo cần chú ý.</p>
-        </div>
-      </header>
+    <PageContainer>
+      <PageHeader title="Tổng quan" description="Bức tranh toàn cảnh về dự án, nhiệm vụ và các cảnh báo cần chú ý." />
 
       {error && <div className="error-message">{error}</div>}
 
       <ServerDashboard />
 
-      <div className="grid-2" style={{ marginTop: "1.5rem" }}>
+      <ResponsiveGrid minItemWidth="20rem" className="workload-panels">
         <section>
           <h3>📊 Phân bố theo trạng thái</h3>
-          <div className="dashboard-grid compact" style={{ marginTop: "1rem" }}>
+          <ResponsiveGrid minItemWidth="12rem" className="kpi-grid">
             {byStatus.map((item) => (
               <div className="dashboard-card" key={item.status}>
                 <span className="label">{statusLabels[item.status]}</span>
                 <span className="value">{item.count}</span>
               </div>
             ))}
-          </div>
+          </ResponsiveGrid>
         </section>
 
         <section>
@@ -101,9 +96,9 @@ export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "project
             {byAssignee.length === 0 && <p style={{ color: "var(--text-muted)" }}>Chưa có nhiệm vụ nào đang hoạt động.</p>}
           </div>
         </section>
-      </div>
+      </ResponsiveGrid>
 
-      <div className="grid-2" style={{ marginTop: "1.5rem" }}>
+      <ResponsiveGrid minItemWidth="20rem" className="workload-panels">
         <section>
           <h3>🔗 Theo repository GitHub</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "1rem" }}>
@@ -134,11 +129,11 @@ export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "project
             {overdue.length === 0 && <p style={{ color: "var(--text-muted)" }}>Không có task quá hạn. 🎉</p>}
           </div>
         </section>
-      </div>
+      </ResponsiveGrid>
 
       <section style={{ marginTop: "1.5rem" }}>
         <h3>📂 Dự án ({projects.length})</h3>
-        <div className="dashboard-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", marginTop: "1rem" }}>
+        <ResponsiveGrid minItemWidth="20rem" className="project-grid">
           {projects.map((project) => (
             <div key={project._id} className="project-card" style={{ margin: 0, flexDirection: "column", alignItems: "stretch", gap: "0.35rem", cursor: "pointer" }} onClick={() => onNavigate("projects")}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -153,7 +148,7 @@ export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "project
             </div>
           ))}
           {projects.length === 0 && <p style={{ color: "var(--text-muted)" }}>Chưa có dự án nào.</p>}
-        </div>
+        </ResponsiveGrid>
       </section>
 
       <section style={{ marginTop: "1.5rem" }}>
@@ -186,6 +181,6 @@ export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "project
           {recent.length === 0 && <p style={{ color: "var(--text-muted)" }}>Chưa có nhiệm vụ nào.</p>}
         </div>
       </section>
-    </main>
+    </PageContainer>
   );
 }

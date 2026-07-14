@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import { OverflowText } from "../../components/data/OverflowText";
 import { ResponsiveDataView, type DataColumn } from "../../components/data/ResponsiveDataView";
 import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
+import { PageContainer, PageHeader, ResponsiveGrid } from "../../components/layout/PageLayout";
 
 type Audit = { _id: string; at: string; actor?: string; action: string; target: string };
 type RealtimeStats = { enabled: boolean; redisConnected: boolean; activeConnections: number; publishedEvents: number; receivedEvents: number; publishFailures: number };
@@ -32,11 +33,11 @@ export function Operations() {
     { key: "target", header: "Đối tượng", render: (item) => <OverflowText value={item.target} copyable label="đối tượng" /> },
   ], []);
 
-  return <main>
-    <header><h2>Bảng Vận Hành Hệ Thống</h2></header>
+  return <PageContainer>
+    <PageHeader title="Bảng Vận Hành Hệ Thống" />
     {error && <div className="error-message" style={{ margin: "1rem 0" }}>{error}</div>}
-    {realtime && <div className="dashboard-grid"><div className="dashboard-card"><span className="label">SSE đang kết nối</span><span className="value">{realtime.activeConnections}</span></div><div className="dashboard-card"><span className="label">Event đã phát</span><span className="value">{realtime.publishedEvents}</span></div><div className="dashboard-card"><span className="label">Redis Pub/Sub</span><span className="value" style={{ color: realtime.redisConnected ? "#4ade80" : "#fb923c" }}>{realtime.redisConnected ? "ON" : "LOCAL"}</span></div><div className="dashboard-card danger"><span className="label">Publish lỗi</span><span className="value">{realtime.publishFailures}</span></div></div>}
+    {realtime && <ResponsiveGrid minItemWidth="12rem" className="kpi-grid"><div className="dashboard-card"><span className="label">SSE đang kết nối</span><span className="value">{realtime.activeConnections}</span></div><div className="dashboard-card"><span className="label">Event đã phát</span><span className="value">{realtime.publishedEvents}</span></div><div className="dashboard-card"><span className="label">Redis Pub/Sub</span><span className="value" style={{ color: realtime.redisConnected ? "#4ade80" : "#fb923c" }}>{realtime.redisConnected ? "ON" : "LOCAL"}</span></div><div className="dashboard-card danger"><span className="label">Publish lỗi</span><span className="value">{realtime.publishFailures}</span></div></ResponsiveGrid>}
     <section className="stack"><h3>⚠️ Hàng Đợi Thất Bại (Dead Letter Queue)</h3><ResponsiveDataView rows={jobs} rowKey={(job) => job._id} columns={jobColumns} caption="Hàng đợi thất bại" empty={<p className="empty-state">Không có job nào thất bại. Hệ thống vận hành tốt!</p>} /></section>
     <section className="stack"><h3>📜 Nhật Ký Hoạt Động (Audit Log)</h3><ResponsiveDataView rows={audit} rowKey={(item) => item._id} columns={auditColumns} caption="Nhật ký hoạt động" empty={<p className="empty-state">Chưa có nhật ký hoạt động nào.</p>} /></section>
-  </main>;
+  </PageContainer>;
 }

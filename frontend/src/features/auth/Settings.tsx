@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
-import { ActionBar } from "../../components/layout/PageLayout";
+import { ActionBar, FormGrid, PageContainer, PageHeader } from "../../components/layout/PageLayout";
 type Settings = {
   telegramToken?: string;
   telegramChatId?: string;
@@ -42,22 +42,21 @@ export function Settings() {
   }
 
   return (
-    <main>
-      <header>
-        <h2>Cấu Hình Hệ Thống</h2>
-      </header>
+    <PageContainer>
+      <PageHeader title="Cấu Hình Hệ Thống" />
 
-      <form className="project-card" style={{ maxWidth: "100%", display: "flex", flexDirection: "column", gap: "1.5rem" }} onSubmit={save}>
+      <form className="settings-form" onSubmit={save}>
         
         {/* Section 1: Telegram Notifications */}
-        <div>
-          <h3 style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", marginBottom: "1rem" }}>
+        <section className="settings-section">
+          <h2>
             📢 Thông báo Telegram
-          </h3>
-          <div className="form-grid">
+          </h2>
+          <FormGrid>
             <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Telegram Bot Token</label>
+              <label htmlFor="telegram-token">Telegram Bot Token</label>
               <input
+                id="telegram-token"
                 type="password"
                 placeholder="Nhập bot token từ @BotFather..."
                 value={value.telegramToken || ""}
@@ -65,44 +64,48 @@ export function Settings() {
               />
             </div>
             <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Telegram Chat ID</label>
+              <label htmlFor="telegram-chat-id">Telegram Chat ID</label>
               <input
+                id="telegram-chat-id"
                 placeholder="Nhập chat ID hoặc group ID..."
                 value={value.telegramChatId || ""}
                 onChange={(e) => setValue({ ...value, telegramChatId: e.target.value })}
               />
             </div>
-          </div>
-        </div>
+          </FormGrid>
+        </section>
 
         {/* Section 2: Email & SMTP */}
-        <div>
-          <h3 style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", marginBottom: "1rem" }}>
+        <section className="settings-section">
+          <h2>
             📧 Cấu hình SMTP Email
-          </h3>
-          <div className="form-grid">
+          </h2>
+          <FormGrid>
             <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>SMTP Host</label>
+              <label htmlFor="smtp-host">SMTP Host</label>
               <input
+                id="smtp-host"
                 placeholder="VD: smtp.gmail.com"
                 value={value.smtpHost || ""}
                 onChange={(e) => setValue({ ...value, smtpHost: e.target.value })}
               />
             </div>
             <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>SMTP Port</label>
+              <label htmlFor="smtp-port">SMTP Port</label>
               <input
+                id="smtp-port"
                 type="number"
                 placeholder="VD: 587 hoặc 465"
                 value={value.smtpPort || ""}
                 onChange={(e) => setValue({ ...value, smtpPort: Number(e.target.value) })}
               />
             </div>
-          </div>
-          <div className="form-grid" style={{ marginTop: "1rem" }}>
+          </FormGrid>
+          <FormGrid>
             <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>SMTP User (Email)</label>
+              <label htmlFor="smtp-user">SMTP User (Email)</label>
               <input
+                id="smtp-user"
                 type="email"
                 placeholder="Email đăng nhập SMTP..."
                 value={value.smtpUser || ""}
@@ -110,36 +113,39 @@ export function Settings() {
               />
             </div>
             <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>SMTP Password</label>
+              <label htmlFor="smtp-password">SMTP Password</label>
               <input
+                id="smtp-password"
                 type="password"
                 placeholder="Mật khẩu SMTP/App password..."
                 value={value.smtpPassword || ""}
                 onChange={(e) => setValue({ ...value, smtpPassword: e.target.value })}
               />
             </div>
-          </div>
-          <div className="form-grid" style={{ marginTop: "1rem" }}>
+          </FormGrid>
+          <FormGrid>
             <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Email gửi đi (Sender)</label>
+              <label htmlFor="email-from">Email gửi đi (Sender)</label>
               <input
+                id="email-from"
                 placeholder="VD: no-reply@company.com"
                 value={value.emailFrom || ""}
                 onChange={(e) => setValue({ ...value, emailFrom: e.target.value })}
               />
             </div>
             <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Email nhận thông báo</label>
+              <label htmlFor="email-to">Email nhận thông báo</label>
               <input
+                id="email-to"
                 placeholder="Email nhận các báo cáo cảnh báo..."
                 value={value.emailTo || ""}
                 onChange={(e) => setValue({ ...value, emailTo: e.target.value })}
               />
             </div>
-          </div>
-        </div>
+          </FormGrid>
+        </section>
         <ActionBar className="action-bar--sticky">{message && <div className="pill active" role={message.includes("thất bại") ? "alert" : "status"}>{message}</div>}<button className="btn-primary">💾 Lưu cấu hình</button></ActionBar>
       </form>
-    </main>
+    </PageContainer>
   );
 }

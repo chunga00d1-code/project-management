@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
 import { OverflowText } from "../../components/data/OverflowText";
-import { ResponsiveGrid } from "../../components/layout/PageLayout";
+import { PageContainer, PageHeader, ResponsiveGrid, Stack } from "../../components/layout/PageLayout";
 
 export type ProjectRole = "owner" | "manager" | "member" | "viewer";
 export type Project = {
@@ -25,13 +25,9 @@ export function Projects() {
   useRealtimeRefresh(["project."], () => void load());
 
   return (
-    <main>
-      <header>
-        <div>
-          <h2>Repository GitHub</h2>
-          <p style={{ color: "var(--text-secondary)", marginTop: ".35rem" }}>Danh sách được đồng bộ tự động khi GitHub App được cài vào repository.</p>
-        </div>
-      </header>
+    <PageContainer>
+      <PageHeader title="Repository GitHub" description="Danh sách được đồng bộ tự động khi GitHub App được cài vào repository." />
+      <Stack>
       {error && <div className="error-message" style={{ margin: "1rem 0" }}>{error}</div>}
       <ResponsiveGrid minItemWidth="20rem" style={{ marginTop: "1.5rem" }}>
         {projects.map((project) => (
@@ -49,6 +45,7 @@ export function Projects() {
         ))}
         {!projects.length && <div className="empty-state"><h3>Chưa có repository</h3><p>Cài ReviewGrid GitHub App vào repository để bắt đầu giao việc.</p></div>}
       </ResponsiveGrid>
-    </main>
+      </Stack>
+    </PageContainer>
   );
 }

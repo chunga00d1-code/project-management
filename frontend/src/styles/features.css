@@ -128,13 +128,23 @@ article.task-card .card-actions button.btn-details:hover { background-color: var
 .workload-grid p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Responsive overrides follow every base rule. */
-@media (max-width: 1200px) { .kanban-grid { grid-template-columns: repeat(3, minmax(275px, 1fr)); } }
-@media (max-width: 1100px) { .filter-bar { grid-template-columns: 1fr 1fr; } .clear-filter { width: 100%; } }
-@media (max-width: 720px) { .dashboard-grid.compact { grid-template-columns: repeat(2, 1fr); } .workload-grid { grid-template-columns: 1fr; } .kanban-loading { grid-template-columns: 1fr; } }
-@media (max-width: 640px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+@media (max-width: 1439px) { .kanban-grid { grid-template-columns: repeat(3, minmax(275px, 1fr)); } }
+@media (max-width: 1023px) { .filter-bar { grid-template-columns: 1fr 1fr; } .clear-filter { width: 100%; } }
+@media (max-width: 767px) { .dashboard-grid.compact { grid-template-columns: repeat(2, 1fr); } .workload-grid { grid-template-columns: 1fr; } .kanban-loading { grid-template-columns: 1fr; } }
+@media (max-width: 767px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 767px) {
   .filter-bar { position: static; grid-template-columns: 1fr; align-items: stretch; padding: 0; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
   .kanban-grid { display: block; margin: 0; padding: 0; overflow: visible; }
   .kanban-column { width: 100%; min-height: 320px; max-height: none; }
 }
 @media (max-width: 479px) { .kanban-status-select select { width: 100%; } }
+
+/* Workspace screens */
+.kpi-grid, .workload-panels, .project-grid { margin-top: 1rem; }
+.task-dashboard { width: 100%; }
+.project-card { min-width: 0; }
+.settings-form { display: grid; gap: 1.5rem; }
+.settings-form label { display: block; margin-bottom: .25rem; color: var(--text-secondary); }
+.settings-section { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); }
+.settings-section h2 { padding-bottom: .5rem; border-bottom: 1px solid var(--border-color); font-size: 1.05rem; }
+.empty-state, .error-message { max-width: 100%; }

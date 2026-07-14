@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
 import { OverflowText } from "../../components/data/OverflowText";
 import { ResponsiveDataView, type DataColumn } from "../../components/data/ResponsiveDataView";
+import { PageContainer, PageHeader, Stack } from "../../components/layout/PageLayout";
 
 type User = { id: string; email: string; role: string; active: boolean; createdAt: string };
 
@@ -41,13 +42,8 @@ export function Users() {
     { key: "actions", header: "Thao tác", render: (user) => <div className="cluster"><select disabled={user.role === "superadmin"} value={user.role} onChange={(event) => void update(user.id, { role: event.target.value })} aria-label={`Vai trò ${user.email}`}>{["superadmin", "admin", "manager", "developer"].map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select><button className="btn-danger" disabled={user.role === "superadmin"} onClick={() => void update(user.id, { active: !user.active })}>{user.active ? "Vô hiệu hóa" : "Kích hoạt"}</button><button className="btn-primary" onClick={() => { const next = prompt("Nhập mật khẩu mới (tối thiểu 12 ký tự):"); if (next) { if (next.length < 12) alert("Mật khẩu phải dài tối thiểu 12 ký tự!"); else void update(user.id, { password: next }); } }}>Đặt lại MK</button></div> },
   ], [update]);
   return (
-    <main>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Quản Lý Thành Viên</h2>
-        <button className="btn-primary" style={{ width: "auto" }} onClick={() => setShowCreate(true)}>
-          ➕ Thêm thành viên
-        </button>
-      </header>
+    <PageContainer>
+      <PageHeader title="Quản Lý Thành Viên" actions={<button className="btn-primary" onClick={() => setShowCreate(true)}>➕ Thêm thành viên</button>} />
 
       {message && (
         <div className="error-message" style={{ margin: "1rem 0" }}>
@@ -55,10 +51,10 @@ export function Users() {
         </div>
       )}
 
-      <div className="stack">
+      <Stack>
         <h3>📋 Danh Sách Thành Viên ({users.length})</h3>
         <ResponsiveDataView rows={users} rowKey={(user) => user.id} columns={columns} caption="Danh sách thành viên" empty={<div className="empty-state"><p>Chưa có thành viên.</p></div>} />
-      </div>
+      </Stack>
 
       {showCreate && (
         <dialog open style={{ maxWidth: "550px", width: "95%", zIndex: 1100 }}>
@@ -127,6 +123,6 @@ export function Users() {
           </form>
         </dialog>
       )}
-    </main>
+    </PageContainer>
   );
 }
