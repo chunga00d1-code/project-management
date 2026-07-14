@@ -10,7 +10,7 @@ import { DeliveryService } from "./delivery.service.js";
 import { getPullRequestFiles } from "./github-files.service.js";
 import { InstallationService } from "../github-app/installation.model.js";
 import { ProjectLinkService } from "../github-app/project-link.service.js";
-import { getInstallationToken } from "../github-app/github-app.service.js";
+import { resolveGithubToken } from "../github-app/github-token.service.js";
 import { ProjectService } from "../projects/project.service.js";
 const tasks = new TaskService();
 const settings = new SettingsService();
@@ -54,17 +54,6 @@ async function handleInstallationRepositoriesEvent(payload: InstallationPayload)
   }
   if (!added.length && !removed.length && payload.action === "added")
     await installations.upsert(installationId, account, []);
-}
-async function resolveGithubToken(repositoryFullName: string): Promise<string> {
-  const installation = await installations.findByRepository(repositoryFullName);
-  if (installation) {
-    try {
-      return await getInstallationToken(installation._id);
-    } catch {
-      return env.githubApiToken;
-    }
-  }
-  return env.githubApiToken;
 }
 webhookRouter.post("/github", async (req, res, next) => {
   try {
