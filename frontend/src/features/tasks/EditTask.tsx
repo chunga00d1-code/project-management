@@ -37,11 +37,11 @@ export function EditTask({ task, onDone, onCancel }: { task: Task; onDone: () =>
       }) });
       onDone();
     }}>
-      <div className="grid-2">
+      <div className="form-grid">
         <div><label>Tiêu đề nhiệm vụ</label><input required value={title} onChange={(event) => setTitle(event.target.value)} /></div>
         <div><label>Người thực hiện</label><select value={assignee} onChange={(event) => setAssignee(event.target.value)}><option value="">Chưa giao</option>{collaborators.map((item) => <option key={item.login} value={item.login}>@{item.login}</option>)}</select></div>
       </div>
-      <div className="grid-2">
+      <div className="form-grid">
         <div><label>Độ ưu tiên</label><select value={priority} onChange={(event) => setPriority(event.target.value)}>{["low", "medium", "high", "urgent"].map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select></div>
         <div><label>Thời gian bắt đầu</label><input type="datetime-local" value={startAt} onChange={(event) => setStartAt(event.target.value)} /></div>
         <div><label>Hạn chót</label><input type="datetime-local" min={startAt || undefined} value={dueAt} onChange={(event) => setDueAt(event.target.value)} />{invalidSchedule && <small className="field-error">Hạn chót phải sau thời gian bắt đầu.</small>}</div>

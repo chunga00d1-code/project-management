@@ -108,20 +108,13 @@ export function TaskBoard() {
         </div>
       </div>
 
-      {showCreate && (
-        <dialog open style={{ maxWidth: "600px", width: "95%", zIndex: 1100 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-            <h2>➕ Tạo Nhiệm Vụ Mới</h2>
-          </div>
-          <CreateTask
+      {showCreate && (<CreateTask
             onCreated={() => {
               setShowCreate(false);
               refresh();
             }}
             onCancel={() => setShowCreate(false)}
-          />
-        </dialog>
-      )}
+          />)}
 
       {selected && <TaskDetail task={selected} onClose={() => setSelectedId(null)} onChange={refresh} />}
     </main>

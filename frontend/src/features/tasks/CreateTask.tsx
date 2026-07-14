@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { Task } from "../../types";
 import type { Project } from "../auth/Projects";
+import { Overlay } from "../../components/overlay/Overlay";
 
 type Collaborator = { login: string; name?: string; avatarUrl: string };
 
@@ -52,7 +53,8 @@ export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onC
   const invalidSchedule = Boolean(startAt && dueAt && new Date(dueAt).getTime() <= new Date(startAt).getTime());
 
   return (
-    <form
+    <Overlay open title="➕ Tạo Nhiệm Vụ Mới" onClose={onCancel} footer={<><button type="button" className="btn-danger" onClick={onCancel}>Hủy bỏ</button><button form="create-task-form" className="btn-primary" disabled={!projectId || collaboratorsLoading || invalidSchedule}>Tạo nhiệm vụ</button></>}>
+    <form id="create-task-form"
       style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "100%" }}
       onSubmit={async (event) => {
         event.preventDefault();
@@ -85,7 +87,7 @@ export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onC
         </div>
       )}
 
-      <div className="grid-2">
+      <div className="form-grid">
         <div>
           <label style={labelStyle}>Tiêu đề nhiệm vụ *</label>
           <input required placeholder="Nhập tiêu đề nhiệm vụ..." value={title} onChange={(event) => setTitle(event.target.value)} />
@@ -99,7 +101,7 @@ export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onC
         </div>
       </div>
 
-      <div className="grid-2">
+      <div className="form-grid">
         <div className="assignee-picker">
           <label style={labelStyle}>Người thực hiện</label>
           <button
@@ -134,7 +136,7 @@ export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onC
         </div>
       </div>
 
-      <div className="grid-2">
+      <div className="form-grid">
         <div>
           <label style={labelStyle}>Thời gian bắt đầu</label>
           <input type="datetime-local" value={startAt} onChange={(event) => setStartAt(event.target.value)} />
@@ -151,10 +153,7 @@ export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onC
         <input placeholder="VD: bug, core, frontend" value={labels} onChange={(event) => setLabels(event.target.value)} />
       </div>
 
-      <div className="flex-row" style={{ justifyContent: "flex-end", marginTop: "0.5rem" }}>
-        <button type="button" className="btn-danger" style={{ padding: "0.75rem 1.5rem", borderRadius: "var(--radius-md)" }} onClick={onCancel}>Hủy bỏ</button>
-        <button className="btn-primary" style={{ width: "auto", padding: "0.75rem 1.5rem" }} disabled={!projectId || collaboratorsLoading || invalidSchedule}>Tạo nhiệm vụ</button>
-      </div>
     </form>
+    </Overlay>
   );
 }

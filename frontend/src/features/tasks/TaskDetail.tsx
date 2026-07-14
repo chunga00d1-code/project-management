@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import type { Task } from "../../types";
 import { EditTask } from "./EditTask";
+import { Overlay } from "../../components/overlay/Overlay";
 
 export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: () => void; onChange: () => void }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -13,7 +14,7 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
   };
 
   return (
-    <dialog open style={{ maxWidth: "750px", width: "95%" }}>
+    <Overlay open title={task.title} onClose={onClose}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
         <div>
           <h2>{task.title}</h2>
@@ -199,6 +200,6 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
       <button className="btn-close" onClick={onClose}>
         Đóng hộp thoại
       </button>
-    </dialog>
+    </Overlay>
   );
 }

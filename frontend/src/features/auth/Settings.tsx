@@ -59,7 +59,7 @@ export function Settings() {
           <h3 style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", marginBottom: "1rem" }}>
             📢 Thông báo Telegram
           </h3>
-          <div className="grid-2">
+          <div className="form-grid">
             <div>
               <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Telegram Bot Token</label>
               <input
@@ -85,7 +85,7 @@ export function Settings() {
           <h3 style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", marginBottom: "1rem" }}>
             📧 Cấu hình SMTP Email
           </h3>
-          <div className="grid-2">
+          <div className="form-grid">
             <div>
               <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>SMTP Host</label>
               <input
@@ -104,7 +104,7 @@ export function Settings() {
               />
             </div>
           </div>
-          <div className="grid-2" style={{ marginTop: "1rem" }}>
+          <div className="form-grid" style={{ marginTop: "1rem" }}>
             <div>
               <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>SMTP User (Email)</label>
               <input
@@ -124,7 +124,7 @@ export function Settings() {
               />
             </div>
           </div>
-          <div className="grid-2" style={{ marginTop: "1rem" }}>
+          <div className="form-grid" style={{ marginTop: "1rem" }}>
             <div>
               <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Email gửi đi (Sender)</label>
               <input
