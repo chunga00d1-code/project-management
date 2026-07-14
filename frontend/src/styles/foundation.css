@@ -1,0 +1,68 @@
+:root {
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --bg-primary: #f4fbf7;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e6f4ea;
+  --bg-glass: rgba(255, 255, 255, 0.75);
+  --border-color: rgba(5, 150, 105, 0.08);
+  --border-light: rgba(5, 150, 105, 0.15);
+  --text-primary: #062f22;
+  --text-secondary: #3b6b5c;
+  --text-muted: #6b8f84;
+  --primary-color: #059669;
+  --primary-hover: #047857;
+  --primary-glow: rgba(5, 150, 105, 0.15);
+  --accent-color: #10b981;
+  --priority-low-bg: #e6f4ea;
+  --priority-low-text: #3b6b5c;
+  --priority-medium-bg: #d1fae5;
+  --priority-medium-text: #047857;
+  --priority-high-bg: #fef3c7;
+  --priority-high-text: #b45309;
+  --priority-urgent-bg: #fee2e2;
+  --priority-urgent-text: #b91c1c;
+  --status-todo: #6b8f84;
+  --status-in-review: #2563eb;
+  --status-needs-changes: #dc2626;
+  --status-ready: #059669;
+  --status-done: #16a34a;
+  --status-cancelled: #5f7a70;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(5, 150, 105, 0.04), 0 2px 4px -2px rgba(5, 150, 105, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(5, 150, 105, 0.06), 0 4px 6px -4px rgba(5, 150, 105, 0.06);
+  --shadow-glow: 0 0 20px 0 rgba(5, 150, 105, 0.06);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --hover-bg: rgba(5, 150, 105, 0.04);
+  --badge-bg: rgba(5, 150, 105, 0.06);
+  --meta-bg: rgba(5, 150, 105, 0.03);
+  --btn-details-bg: rgba(5, 150, 105, 0.03);
+  --btn-details-hover: rgba(5, 150, 105, 0.07);
+  --pill-active-bg: rgba(5, 150, 105, 0.08);
+  --pill-active-text: #059669;
+  --pill-disabled-bg: rgba(239, 68, 68, 0.08);
+  --pill-disabled-text: #dc2626;
+  --bp-mobile: 480px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+  --bp-wide: 1440px;
+  --content-max: 1440px;
+  --page-gutter: clamp(1rem, 3vw, 3rem);
+  --section-gap: clamp(1rem, 2vw, 1.75rem);
+  --control-min-height: 44px;
+  --overlay-z: 100;
+  --drawer-z: 110;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { min-width: 320px; }
+body { margin: 0; min-width: 320px; overflow-x: clip; font-family: var(--font-body); background-color: var(--bg-primary); color: var(--text-primary); line-height: 1.5; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+button, input, select, textarea { min-height: var(--control-min-height); font: inherit; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
