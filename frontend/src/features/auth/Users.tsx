@@ -65,7 +65,7 @@ export function Users() {
       </Stack>
 
       {showCreate && (
-        <dialog open style={{ maxWidth: "550px", width: "95%", zIndex: 1100 }}>
+        <dialog className="users-dialog" open style={{ maxWidth: "550px", width: "95%", zIndex: 1100 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
             <h2>➕ Thêm Thành Viên Mới</h2>
           </div>

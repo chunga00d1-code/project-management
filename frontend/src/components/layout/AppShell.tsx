@@ -44,6 +44,6 @@ export function AppShell<PageId extends string>({ items, activePage, onNavigate,
   </>;
   return <div className="app-shell">
     {isDrawerLayout ? <><header className="mobile-app-header"><span aria-hidden="true"><ReviewGridLogo compact /></span><button ref={triggerRef} type="button" aria-label="Mở điều hướng" aria-expanded={drawerOpen} aria-controls="app-navigation-drawer" onClick={() => setDrawerOpen(true)}>☰</button></header>{drawerOpen && <><div className="app-drawer-backdrop" aria-hidden="true" onClick={() => setDrawerOpen(false)} /><div id="app-navigation-drawer" ref={drawerRef} className="app-drawer" role="dialog" aria-modal="true" aria-label="Điều hướng chính"><button className="app-drawer__close" type="button" aria-label="Đóng điều hướng" onClick={() => setDrawerOpen(false)}>×</button><nav className="sidebar" aria-label="Điều hướng chính">{navigationContent}</nav></div></>}</> : <nav className="sidebar desktop-sidebar" aria-label="Điều hướng chính">{navigationContent}</nav>}
-    <div className="app-shell__content" role="region" aria-label="Nội dung chính">{children}</div>
+    <div className="app-shell__content">{children}</div>
   </div>;
 }

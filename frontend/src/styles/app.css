@@ -79,7 +79,7 @@ main {
   gap: 2rem;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 479px) {
   main {
     padding: 1.25rem;
     gap: 1.5rem;
@@ -207,7 +207,7 @@ form.login-form .error-message {
 }
 
 /* Dialog / Modal (Premium Overlay) */
-dialog {
+.users-dialog {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
@@ -220,12 +220,12 @@ dialog {
   animation: modalEntrance 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-dialog::backdrop {
+.users-dialog::backdrop {
   background-color: rgba(15, 23, 42, 0.3);
   backdrop-filter: blur(8px);
 }
 
-dialog h2 {
+.users-dialog h2 {
   font-size: 1.75rem;
   margin-bottom: 0.5rem;
   background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
@@ -233,27 +233,27 @@ dialog h2 {
   -webkit-text-fill-color: transparent;
 }
 
-dialog p.desc {
+.users-dialog p.desc {
   color: var(--text-secondary);
   margin-bottom: 1.5rem;
   font-size: 1rem;
 }
 
-dialog h3 {
+.users-dialog h3 {
   font-size: 1.2rem;
   margin: 1.5rem 0 0.75rem;
   padding-bottom: 0.25rem;
   border-bottom: 1px solid var(--border-color);
 }
 
-dialog ul {
+.users-dialog ul {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-dialog ul li {
+.users-dialog ul li {
   background-color: var(--bg-tertiary);
   padding: 0.75rem 1rem;
   border-radius: var(--radius-md);
@@ -262,14 +262,14 @@ dialog ul li {
   gap: 0.75rem;
 }
 
-dialog input[type="checkbox"] {
+.users-dialog input[type="checkbox"] {
   width: 1.2rem;
   height: 1.2rem;
   accent-color: var(--primary-color);
   cursor: pointer;
 }
 
-dialog button.btn-close {
+.users-dialog button.btn-close {
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
@@ -277,7 +277,7 @@ dialog button.btn-close {
   width: 100%;
 }
 
-dialog button.btn-close:hover {
+.users-dialog button.btn-close:hover {
   background-color: var(--text-muted);
 }
 
@@ -319,7 +319,7 @@ article.project-card, .list-container li {
   margin-bottom: 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .list-container li {
     flex-direction: column;
     align-items: stretch;
@@ -355,7 +355,7 @@ article.project-card, .list-container li {
   gap: 1.5rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .grid-2 {
     grid-template-columns: 1fr;
   }
@@ -417,7 +417,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,.1); color: var(--text-primary); }
 .error-message { padding: .8rem 1rem; border: 1px solid rgba(239,68,68,.22); border-radius: var(--radius-md); background: rgba(239,68,68,.09); color: #fca5a5; }
 
-@media (max-width: 640px) { main header h1 { font-size: 1.55rem; } dialog { width: 96%; padding: 1.25rem; } }
+@media (max-width: 479px) { main header h1 { font-size: 1.55rem; } .users-dialog { width: 96%; padding: 1.25rem; } }
 
 /* Realtime and query states */
 .realtime-status { position: fixed; right: 1rem; bottom: 1rem; z-index: 1000; display: flex; align-items: center; gap: .45rem; padding: .48rem .72rem; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-glass); color: var(--text-secondary); box-shadow: var(--shadow-md); backdrop-filter: blur(12px); font-size: .72rem; font-weight: 700; }
@@ -432,6 +432,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .toast-message { position: fixed; top: 1rem; right: 1rem; z-index: 1200; padding: .7rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-primary); box-shadow: var(--shadow-lg); font-size: .8rem; }
 .pagination-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.15rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-secondary); color: var(--text-secondary); font-size: .82rem; }
 .pagination-bar > div { display: flex; gap: .6rem; }
-@media (max-width: 720px) { main > header { align-items: flex-start; gap: 1rem; } .pagination-bar { align-items: stretch; flex-direction: column; } .pagination-bar > div button { flex: 1; } }
+@media (max-width: 767px) { main > header { align-items: flex-start; gap: 1rem; } .pagination-bar { align-items: stretch; flex-direction: column; } .pagination-bar > div button { flex: 1; } }
 
 .realtime-status.polling span { background: #60a5fa; box-shadow: 0 0 0 4px rgba(96,165,250,.12); }

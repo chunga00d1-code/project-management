@@ -23,7 +23,7 @@ describe("AppShell", () => {
         user={{ email: "a@b.com", role: "admin" }}
         onSignOut={vi.fn()}
       >
-        <p>Nội dung</p>
+        <main>Nội dung</main>
       </AppShell>,
       375,
     );
@@ -72,7 +72,7 @@ describe("AppShell", () => {
     document.body.style.overflow = "clip";
     renderAtViewport(
       <AppShell items={[...items]} activePage="overview" onNavigate={vi.fn()} user={{ email: "a@b.com" }} onSignOut={vi.fn()}>
-        <p>Nội dung</p>
+        <main>Nội dung</main>
       </AppShell>,
       375,
     );
@@ -94,7 +94,7 @@ describe("AppShell", () => {
     const user = userEvent.setup();
     renderAtViewport(
       <AppShell items={[...items]} activePage="overview" onNavigate={vi.fn()} user={{ email: "a@b.com" }} onSignOut={vi.fn()}>
-        <p>Nội dung</p>
+        <main>Nội dung</main>
       </AppShell>,
       375,
     );
@@ -112,7 +112,7 @@ describe("AppShell", () => {
     const onNavigate = vi.fn();
     renderAtViewport(
       <AppShell items={[...items]} activePage="overview" onNavigate={onNavigate} user={{ email: "a@b.com" }} onSignOut={vi.fn()}>
-        <p>Nội dung</p>
+        <main>Nội dung</main>
       </AppShell>,
       375,
     );
@@ -132,7 +132,7 @@ describe("AppShell", () => {
         user={{ email: "a@b.com", role: "admin" }}
         onSignOut={vi.fn()}
       >
-        <p>Nội dung</p>
+        <main>Nội dung</main>
       </AppShell>,
       1024,
     );
