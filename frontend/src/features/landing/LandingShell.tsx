@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { CommandField } from "./CommandField";
 import { ReviewGridLogo } from "../../components/brand/ReviewGridLogo";
 
@@ -8,6 +8,7 @@ const ids = ["landing-capabilities", "landing-workflow", "landing-security", "la
 export function LandingShell({ children, locale, onLocale, onLogin }: { children: ReactNode; locale: Locale; onLocale: (value: Locale) => void; onLogin: () => void }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [active, setActive] = useState("");
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -24,7 +25,10 @@ export function LandingShell({ children, locale, onLocale, onLogin }: { children
   useEffect(() => {
     if (!mobileOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileOpen(false);
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        menuTriggerRef.current?.focus();
+      }
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
@@ -43,15 +47,15 @@ export function LandingShell({ children, locale, onLocale, onLogin }: { children
         <div
           id="landing-navigation-menu"
           className={`pf-nav-links ${mobileOpen ? "open" : ""}`}
-          role={mobileOpen ? "dialog" : undefined}
-          aria-label={mobileOpen ? (locale === "vi" ? "Menu điều hướng" : "Navigation menu") : undefined}
+          role="region"
+          aria-label={locale === "vi" ? "Menu điều hướng" : "Navigation menu"}
         >
           {ids.map((id, index) => (
             <a className={active === id ? "active" : ""} key={id} href={`#${id}`} onClick={() => setMobileOpen(false)}>
               {labels[index]}
             </a>
           ))}
-          <button className="pf-mobile-signin" type="button" onClick={onLogin}>{signInLabel}</button>
+          <button className="pf-mobile-signin" type="button" onClick={() => { setMobileOpen(false); onLogin(); }}>{signInLabel}</button>
         </div>
         <div className="pf-nav-actions">
           <div className="pf-language" aria-label={locale === "vi" ? "Ngôn ngữ" : "Language"}>
@@ -60,6 +64,7 @@ export function LandingShell({ children, locale, onLocale, onLogin }: { children
           </div>
           <button type="button" className="pf-signin" onClick={onLogin}>{signInLabel}</button>
           <button
+            ref={menuTriggerRef}
             type="button"
             className="pf-menu"
             aria-label={mobileOpen ? (locale === "vi" ? "Đóng menu" : "Close menu") : (locale === "vi" ? "Mở menu" : "Open menu")}

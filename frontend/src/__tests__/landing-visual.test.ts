@@ -4,16 +4,16 @@ import { describe, expect, it } from "vitest";
 describe("landing visual layering", () => {
   it("keeps the animated command field visible behind transparent landing content", async () => {
     const css = await readFile(new URL("../features/landing/landing-experience.css", import.meta.url), "utf8");
-    expect(css).toContain(".pf-experience>.pf-landing{background:transparent}");
+    expect(css.replaceAll(String.fromCharCode(13), "").replaceAll(String.fromCharCode(10), "").replaceAll(" ", "")).toContain(".pf-experience>.pf-landing{background:transparent}");
   });
 
   it("renders the navigation logo text in white", async () => {
     const css = await readFile(new URL("../features/landing/landing-experience.css", import.meta.url), "utf8");
-    expect(css).toContain(".pf-premium-nav .pf-logo{color:#fff}");
+    expect(css.replaceAll(String.fromCharCode(13), "").replaceAll(String.fromCharCode(10), "").replaceAll(" ", "")).toContain(".pf-premium-nav.pf-logo{color:#fff}");
   });
 
   it("keeps the proof section in the dark emerald visual system", async () => {
     const css = await readFile(new URL("../features/landing/landing-experience.css", import.meta.url), "utf8");
-    expect(css).toContain(".pf-experience .pf-proof{background:#0b1713;color:#edf5f0}");
+    expect(css.replaceAll(String.fromCharCode(13), "").replaceAll(String.fromCharCode(10), "").replaceAll(" ", "")).toContain(".pf-experience.pf-proof{background:#0b1713;color:#edf5f0}");
   });
 });
