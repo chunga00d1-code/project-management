@@ -11,4 +11,9 @@ describe("landing visual layering", () => {
     const css = await readFile(new URL("../features/landing/landing-experience.css", import.meta.url), "utf8");
     expect(css).toContain(".pf-premium-nav .pf-logo{color:#fff}");
   });
+
+  it("keeps the proof section in the dark emerald visual system", async () => {
+    const css = await readFile(new URL("../features/landing/landing-experience.css", import.meta.url), "utf8");
+    expect(css).toContain(".pf-experience .pf-proof{background:#0b1713;color:#edf5f0}");
+  });
 });
