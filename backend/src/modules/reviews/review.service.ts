@@ -16,9 +16,22 @@ export function verifySignature(body: Buffer, header: string | undefined) {
     crypto.timingSafeEqual(expected, actual)
   );
 }
+export interface TaskContext {
+  title: string;
+  description?: string;
+}
+export interface TaskAlignment {
+  matches: boolean;
+  reason: string;
+}
+export interface ReviewResult {
+  findings: Finding[];
+  taskAlignment?: TaskAlignment;
+}
 export async function reviewDiff(
   files: { filename: string; patch?: string }[],
-) {
+  task?: TaskContext,
+): Promise<ReviewResult> {
   const rules: [RegExp, Finding["severity"], string][] = [
     [/AKIA[0-9A-Z]{16}/, "critical", "AWS key detected"],
     [/-----BEGIN .*PRIVATE KEY-----/, "critical", "Private key detected"],
@@ -33,7 +46,7 @@ export async function reviewDiff(
           file: file.filename,
           message: rule[2],
         });
-  if (!env.llmEnabled) return findings;
+  if (!env.llmEnabled) return { findings };
   if (!env.llmUrl || !env.llmKey || !env.llmModel)
     throw new Error("LLM configuration is incomplete");
   const diff = files
@@ -41,6 +54,9 @@ export async function reviewDiff(
     .map((f) => `${f.filename}\n${f.patch || ""}`)
     .join("\n")
     .slice(0, 60000);
+  const taskPrompt = task
+    ? `Task being implemented:\nTitle: ${task.title}\nDescription: ${task.description || "(none)"}\n\nReview this PR diff, and assess whether the changes actually implement what the task above describes:\n${diff}`
+    : `Review this PR diff:\n${diff}`;
   const response = await fetch(env.llmUrl, {
     method: "POST",
     headers: {
@@ -53,10 +69,11 @@ export async function reviewDiff(
       messages: [
         {
           role: "system",
-          content:
-            "Return JSON only: {findings:[{severity,file,message,recommendation}]}",
+          content: task
+            ? "Return JSON only: {findings:[{severity,file,message,recommendation}], taskAlignment:{matches:boolean,reason:string}}"
+            : "Return JSON only: {findings:[{severity,file,message,recommendation}]}",
         },
-        { role: "user", content: `Review this PR diff:\n${diff}` },
+        { role: "user", content: taskPrompt },
       ],
     }),
   });
@@ -66,8 +83,11 @@ export async function reviewDiff(
   };
   try {
     const parsed = JSON.parse(data.choices?.[0]?.message?.content || "{}");
-    return [...findings, ...(parsed.findings || [])];
+    return {
+      findings: [...findings, ...(parsed.findings || [])],
+      taskAlignment: task ? parsed.taskAlignment : undefined,
+    };
   } catch {
-    return findings;
+    return { findings };
   }
 }

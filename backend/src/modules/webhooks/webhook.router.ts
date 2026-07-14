@@ -136,10 +136,24 @@ webhookRouter.post("/github", async (req, res, next) => {
       });
       if (!comment.ok) throw new Error(`GitHub comment HTTP ${comment.status}`);
     };
-    const findings = await reviewDiff(
-      await getPullRequestFiles(payload.repository.url, pr.number, 10, githubToken),
-    );
     const runtime = await settings.get();
+    const assigneeLogin =
+      pr.assignee?.login || pr.requested_reviewers?.[0]?.login || "";
+    const assignee =
+      String(runtime.githubAssigneeMappings || "")
+        .split(/\r?\n|,/)
+        .map((line: string) => line.split("=").map((x) => x.trim()))
+        .find(
+          (pair: string[]) =>
+            pair[0]?.toLowerCase() === assigneeLogin.toLowerCase(),
+        )?.[1] || assigneeLogin;
+    const taskCodeMatch = `${pr.title} ${pr.body || ""}`.match(TASK_CODE_PATTERN);
+    const taskCode = taskCodeMatch ? taskCodeMatch[0].toUpperCase() : null;
+    const matchedTask = taskCode ? await tasks.findByCode(taskCode) : null;
+    const { findings, taskAlignment } = await reviewDiff(
+      await getPullRequestFiles(payload.repository.url, pr.number, 10, githubToken),
+      matchedTask ? { title: matchedTask.title, description: matchedTask.description } : undefined,
+    );
     const blocking = runtime.blockingSeverities?.length
       ? runtime.blockingSeverities
       : ["critical", "high"];
@@ -151,21 +165,10 @@ webhookRouter.post("/github", async (req, res, next) => {
         : findings.some((f) => blocking.includes(f.severity))
           ? "needs_changes"
           : "ready";
-    const assigneeLogin =
-      pr.assignee?.login || pr.requested_reviewers?.[0]?.login || "";
-    const assignee =
-      String(runtime.githubAssigneeMappings || "")
-        .split(/\r?\n|,/)
-        .map((line: string) => line.split("=").map((x) => x.trim()))
-        .find(
-          (pair: string[]) =>
-            pair[0]?.toLowerCase() === assigneeLogin.toLowerCase(),
-        )?.[1] || assigneeLogin;
     const summary =
       findings
         .map((f) => `[${f.severity}] ${f.file}: ${f.message}`)
         .join("\n") || "No findings";
-    const taskCodeMatch = `${pr.title} ${pr.body || ""}`.match(TASK_CODE_PATTERN);
     if (!taskCodeMatch) {
       await postGithubComment(
         "⚠️ Không tìm thấy mã Task (vd `TASK-123`) trong tiêu đề/mô tả PR. Vui lòng bổ sung mã Task để hệ thống có thể đối chiếu.",
@@ -189,15 +192,14 @@ webhookRouter.post("/github", async (req, res, next) => {
         metadata: { reasons: ["missing_task_code"] },
       });
     } else {
-      const taskCode = taskCodeMatch[0].toUpperCase();
-      const task = await tasks.findByCode(taskCode);
+      const task = matchedTask;
       if (!task) {
         await postGithubComment(
           `⚠️ Không tìm thấy Task ${taskCode}. Vui lòng kiểm tra lại mã Task.`,
         );
         try {
           await notifyMismatch(
-            taskCode,
+            taskCode!,
             payload.repository.full_name,
             pr.number,
             pr.html_url,
@@ -210,7 +212,7 @@ webhookRouter.post("/github", async (req, res, next) => {
         await audit({
           actor: "github-webhook",
           action: "task.pr.mismatch",
-          target: taskCode,
+          target: taskCode!,
           metadata: { reasons: ["task_not_found"] },
         });
       } else {
@@ -225,6 +227,8 @@ webhookRouter.post("/github", async (req, res, next) => {
           !["done", "cancelled"].includes(task.status)
         )
           reasons.push("overdue");
+        if (taskAlignment && taskAlignment.matches === false)
+          reasons.push("content_mismatch");
         const syncedTask = await tasks.linkPullRequest(task._id, {
           repository: payload.repository.full_name,
           number: pr.number,
@@ -246,12 +250,17 @@ webhookRouter.post("/github", async (req, res, next) => {
             },
           });
         if (reasons.length) {
+          const reasonLines = reasons.map((r) =>
+            r === "content_mismatch" && taskAlignment?.reason
+              ? `- content_mismatch: ${taskAlignment.reason}`
+              : `- ${r}`,
+          );
           await postGithubComment(
-            `⚠️ Task ${taskCode} không khớp với PR này:\n${reasons.map((r) => `- ${r}`).join("\n")}`,
+            `⚠️ Task ${taskCode} không khớp với PR này:\n${reasonLines.join("\n")}`,
           );
           try {
             await notifyMismatch(
-              taskCode,
+              taskCode!,
               payload.repository.full_name,
               pr.number,
               pr.html_url,
