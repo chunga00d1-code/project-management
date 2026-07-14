@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Login } from "./features/auth/Login";
 import { TaskBoard } from "./features/tasks/TaskBoard";
 import { Settings } from "./features/auth/Settings";
@@ -10,6 +10,7 @@ import { api } from "./api/client";
 import { RealtimeProvider } from "./realtime/RealtimeProvider";
 import { LocalizedLandingPage } from "./features/landing/LocalizedLandingPage";
 import { Overview } from "./features/overview/Overview";
+import { ReviewGridLogo } from "./components/brand/ReviewGridLogo";
 type Page = "overview" | "tasks" | "projects" | "settings" | "users" | "operations";
 const navItems: { id: Page; label: string; icon: string; permission?: "admin" | "users" }[] = [
   { id: "overview", label: "Tổng quan", icon: "◈" },
@@ -31,5 +32,5 @@ export function App() {
     : <LocalizedLandingPage onLogin={() => setShowLogin(true)} />;
   const visibleNav = navItems.filter((item) => !item.permission || (item.permission === "admin" ? admin : hasPermission(user.role, "users")));
   const content = page === "overview" ? <Overview onNavigate={setPage} /> : page === "tasks" ? <TaskBoard /> : page === "projects" ? <Projects /> : page === "settings" && admin ? <Settings /> : page === "users" && hasPermission(user.role, "users") ? <Users /> : page === "operations" && admin ? <Operations /> : <Overview onNavigate={setPage} />;
-  return <RealtimeProvider><div className="app-container"><nav className="sidebar" aria-label="Điều hướng chính"><div className="brand"><span className="brand-mark">P</span><span>Project Flow<small>PR Review Workspace</small></span></div><div className="nav-group">{visibleNav.map((item) => <button key={item.id} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined} onClick={() => setPage(item.id)}><span className="nav-icon" aria-hidden="true">{item.icon}</span>{item.label}</button>)}</div><div className="sidebar-footer"><div className="user-chip"><span className="avatar">{(user.email || "U").charAt(0).toUpperCase()}</span><span><strong>{user.email || "Người dùng"}</strong><small>{user.role || "member"}</small></span></div><button className="sign-out" onClick={() => void signOut()}><span className="nav-icon">↪</span>Đăng xuất</button></div></nav>{content}</div></RealtimeProvider>;
+  return <RealtimeProvider><div className="app-container"><nav className="sidebar" aria-label="Điều hướng chính"><div className="brand"><ReviewGridLogo showTagline /></div><div className="nav-group">{visibleNav.map((item) => <button key={item.id} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined} onClick={() => setPage(item.id)}><span className="nav-icon" aria-hidden="true">{item.icon}</span>{item.label}</button>)}</div><div className="sidebar-footer"><div className="user-chip"><span className="avatar">{(user.email || "U").charAt(0).toUpperCase()}</span><span><strong>{user.email || "Người dùng"}</strong><small>{user.role || "member"}</small></span></div><button className="sign-out" onClick={() => void signOut()}><span className="nav-icon">↪</span>Đăng xuất</button></div></nav>{content}</div></RealtimeProvider>;
 }

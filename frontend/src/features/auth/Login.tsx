@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../../api/client";
+import { ReviewGridLogo } from "../../components/brand/ReviewGridLogo";
 type LoginResult = { token: string; user: { id: string; email: string; role: string } };
 export function Login({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState("");
@@ -22,7 +23,8 @@ export function Login({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="login-wrapper">
       <form className="login-form" onSubmit={submit}>
-        <h1>PR Review Tasks</h1>
+        <ReviewGridLogo className="login-brand" showTagline />
+        <h1>PR Review Operations</h1>
         <p style={{ textAlign: "center", color: "var(--text-secondary)", marginTop: "-0.5rem", marginBottom: "1rem" }}>
           Hệ thống quản lý task thông minh tích hợp GitHub
         </p>
