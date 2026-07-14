@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { TaskFilters, type TaskQuery } from "../../features/tasks/TaskFilters";
 import type { Task } from "../../types";
+import { readFile } from "node:fs/promises";
 import { renderAtViewport } from "../../test/renderAtViewport";
 
 const mockApi = vi.hoisted(() => vi.fn());
@@ -120,5 +121,34 @@ describe("mobile filter sheet", () => {
     expect(screen.getByRole("button", { name: /xóa lọc/i })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: /áp dụng/i }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+function topLevelSelectors(css: string) {
+  const selectors: string[] = []; let index = 0;
+  while (index < css.length) {
+    const open = css.indexOf("{", index); if (open < 0) break;
+    const header = css.slice(index, open).replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    let depth = 1; let close = open + 1;
+    while (close < css.length && depth) { if (css[close] === "{") depth++; if (css[close] === "}") depth--; close++; }
+    if (header && !header.startsWith("@")) selectors.push(...header.split(",").map((item) => item.trim()));
+    index = close;
+  }
+  return selectors;
+}
+
+describe("Kanban feature CSS ownership", () => {
+  it("has one coherent core base and places mobile overrides after every base rule", async () => {
+    const css = await readFile("frontend/src/styles/features.css", "utf8");
+    const selectors = topLevelSelectors(css);
+    for (const selector of [".filter-bar", ".kanban-grid", ".kanban-column", "article.task-card", ".dashboard-grid", ".dashboard-card", ".workload-details", ".workload-grid"]) {
+      expect(selectors.filter((item) => item === selector), selector).toHaveLength(1);
+    }
+    const mobile = css.lastIndexOf("@media (max-width: 767px)");
+    const compact = css.lastIndexOf("@media (max-width: 479px)");
+    expect(mobile).toBeGreaterThan(css.lastIndexOf(".workload-grid p span"));
+    expect(compact).toBeGreaterThan(mobile);
+    expect(css.slice(mobile, compact)).toMatch(/\.filter-bar\s*\{[^}]*position:\s*static[^}]*grid-template-columns:\s*1fr[^}]*background:\s*transparent/s);
+    expect(css.slice(mobile, compact)).toMatch(/\.kanban-grid\s*\{[^}]*display:\s*block/s);
+    expect(css.slice(mobile, compact)).toMatch(/\.kanban-column\s*\{[^}]*min-height:\s*320px[^}]*max-height:\s*none/s);
   });
 });
