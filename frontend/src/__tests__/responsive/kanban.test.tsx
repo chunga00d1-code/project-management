@@ -140,12 +140,11 @@ describe("Kanban feature CSS ownership", () => {
   it("has one coherent core base and places mobile overrides after every base rule", async () => {
     const css = await readFile("frontend/src/styles/features.css", "utf8");
     const selectors = topLevelSelectors(css);
-    for (const selector of [".filter-bar", ".kanban-grid", ".kanban-column", "article.task-card", ".dashboard-grid", ".dashboard-card", ".workload-details", ".workload-grid"]) {
+    for (const selector of [".filter-bar", ".kanban-grid", ".kanban-column", "article.task-card", ".dashboard-card", ".workload-details"]) {
       expect(selectors.filter((item) => item === selector), selector).toHaveLength(1);
     }
     const mobile = css.lastIndexOf("@media (max-width: 767px)");
     const compact = css.lastIndexOf("@media (max-width: 479px)");
-    expect(mobile).toBeGreaterThan(css.lastIndexOf(".workload-grid p span"));
     expect(compact).toBeGreaterThan(mobile);
     expect(css.slice(mobile, compact)).toMatch(/\.filter-bar\s*\{[^}]*position:\s*static[^}]*grid-template-columns:\s*1fr[^}]*background:\s*transparent/s);
     expect(css.slice(mobile, compact)).toMatch(/\.kanban-grid\s*\{[^}]*display:\s*block/s);

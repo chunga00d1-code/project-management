@@ -17,9 +17,14 @@ type Settings = {
 export function Settings() {
   const [value, setValue] = useState<Settings>({});
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   
   useEffect(() => {
-    void api<Settings>("/settings").then(setValue);
+    void api<Settings>("/settings")
+      .then((settings) => { setValue(settings); setLoadError(""); })
+      .catch((reason: unknown) => setLoadError(reason instanceof Error ? reason.message : "Không thể tải cấu hình"))
+      .finally(() => setLoading(false));
   }, []);
 
   async function save(e: React.FormEvent) {
@@ -41,11 +46,14 @@ export function Settings() {
     setTimeout(() => setMessage(""), 3000);
   }
 
+  if (loading) return <PageContainer><PageHeader title="Cấu Hình Hệ Thống" /><div className="state-block" role="status" aria-label="Đang tải">Đang tải cấu hình…</div></PageContainer>;
+  if (loadError) return <PageContainer><PageHeader title="Cấu Hình Hệ Thống" /><div className="error-message state-block" role="alert">{loadError}</div></PageContainer>;
+
   return (
     <PageContainer>
       <PageHeader title="Cấu Hình Hệ Thống" />
 
-      <form className="settings-form" onSubmit={save}>
+      <form className="settings-form" aria-label="Cấu hình hệ thống" onSubmit={save}>
         
         {/* Section 1: Telegram Notifications */}
         <section className="settings-section">

@@ -13,9 +13,14 @@ export function Users() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("developer");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
 
-  const load = useCallback(() => api<User[]>("/auth/users").then(setUsers), []);
+  const load = useCallback(() => api<User[]>("/auth/users")
+    .then((items) => { setUsers(items); setLoadError(""); })
+    .catch((reason: unknown) => setLoadError(reason instanceof Error ? reason.message : "Không thể tải thành viên"))
+    .finally(() => setLoading(false)), []);
   useEffect(() => {
     void load();
   }, [load]);
@@ -41,6 +46,9 @@ export function Users() {
     { key: "role", header: "Vai trò", render: (user) => <strong>{user.role}</strong> },
     { key: "actions", header: "Thao tác", render: (user) => <div className="cluster"><select disabled={user.role === "superadmin"} value={user.role} onChange={(event) => void update(user.id, { role: event.target.value })} aria-label={`Vai trò ${user.email}`}>{["superadmin", "admin", "manager", "developer"].map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select><button className="btn-danger" disabled={user.role === "superadmin"} onClick={() => void update(user.id, { active: !user.active })}>{user.active ? "Vô hiệu hóa" : "Kích hoạt"}</button><button className="btn-primary" onClick={() => { const next = prompt("Nhập mật khẩu mới (tối thiểu 12 ký tự):"); if (next) { if (next.length < 12) alert("Mật khẩu phải dài tối thiểu 12 ký tự!"); else void update(user.id, { password: next }); } }}>Đặt lại MK</button></div> },
   ], [update]);
+  if (loading) return <PageContainer><PageHeader title="Quản Lý Thành Viên" actions={<button className="btn-primary" disabled>➕ Thêm thành viên</button>} /><div className="state-block" role="status" aria-label="Đang tải">Đang tải thành viên…</div></PageContainer>;
+  if (loadError) return <PageContainer><PageHeader title="Quản Lý Thành Viên" actions={<button className="btn-primary" disabled>➕ Thêm thành viên</button>} /><div className="error-message state-block" role="alert">{loadError}</div></PageContainer>;
+
   return (
     <PageContainer>
       <PageHeader title="Quản Lý Thành Viên" actions={<button className="btn-primary" onClick={() => setShowCreate(true)}>➕ Thêm thành viên</button>} />

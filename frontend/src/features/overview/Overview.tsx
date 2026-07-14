@@ -19,20 +19,26 @@ const taskDeadline = (task: Task) => task.dueAt || (task.dueDate ? `${task.dueDa
 export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "projects") => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const load = () =>
     Promise.all([api<Task[]>("/tasks"), api<Project[]>("/projects")])
       .then(([t, p]) => {
         setTasks(t);
         setProjects(p);
+        setLoadError("");
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: Error) => setLoadError(e.message))
+      .finally(() => setLoading(false));
 
   useEffect(() => {
     void load();
   }, []);
   useRealtimeRefresh(["task.", "project."], () => void load());
+
+  if (loading) return <PageContainer><PageHeader title="Tổng quan" description="Bức tranh toàn cảnh về dự án, nhiệm vụ và các cảnh báo cần chú ý." /><div className="state-block" role="status" aria-label="Đang tải">Đang tải tổng quan…</div></PageContainer>;
+  if (loadError) return <PageContainer><PageHeader title="Tổng quan" description="Bức tranh toàn cảnh về dự án, nhiệm vụ và các cảnh báo cần chú ý." /><div className="error-message state-block" role="alert">{loadError}</div></PageContainer>;
 
   const mismatched = tasks.filter((t) => t.prSyncStatus === "mismatched");
   const recent = [...tasks].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || "")).slice(0, 6);
@@ -66,8 +72,6 @@ export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "project
   return (
     <PageContainer>
       <PageHeader title="Tổng quan" description="Bức tranh toàn cảnh về dự án, nhiệm vụ và các cảnh báo cần chú ý." />
-
-      {error && <div className="error-message">{error}</div>}
 
       <ServerDashboard />
 

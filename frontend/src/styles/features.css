@@ -112,8 +112,6 @@ article.task-card .card-actions button.btn-details:hover { background-color: var
 .task-action-menu [role="menuitem"] { width: 100%; min-height: 44px; padding: .65rem; font-size: .82rem; }
 
 /* Dashboards and workload */
-.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; }
-.dashboard-grid.compact { grid-template-columns: repeat(4, minmax(105px, 1fr)); }
 .dashboard-card { display: flex; flex-direction: column; gap: .5rem; padding: 1.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary)); box-shadow: var(--shadow-sm); transition: var(--transition-smooth); }
 .dashboard-card:hover { transform: translateY(-2px); border-color: rgba(99,102,241,.25); box-shadow: var(--shadow-md); }
 .dashboard-card span.value { color: var(--primary-color); font-family: var(--font-heading); font-size: 2.25rem; font-weight: 700; line-height: 1; }
@@ -123,15 +121,13 @@ article.task-card .card-actions button.btn-details:hover { background-color: var
 .server-dashboard { display: grid; gap: 1rem; }
 .workload-details { padding: .8rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-secondary); }
 .workload-details summary { color: var(--text-secondary); font-weight: 700; cursor: pointer; }
-.workload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; padding-top: .9rem; }
-.workload-grid p { display: flex; justify-content: space-between; gap: .5rem; margin-top: .4rem; padding-bottom: .35rem; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: .76rem; }
-.workload-grid p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workload-details .workload-panels p { display: flex; justify-content: space-between; gap: .5rem; margin-top: .4rem; padding-bottom: .35rem; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: .76rem; }
+.workload-details .workload-panels p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Responsive overrides follow every base rule. */
 @media (max-width: 1439px) { .kanban-grid { grid-template-columns: repeat(3, minmax(275px, 1fr)); } }
 @media (max-width: 1023px) { .filter-bar { grid-template-columns: 1fr 1fr; } .clear-filter { width: 100%; } }
-@media (max-width: 767px) { .dashboard-grid.compact { grid-template-columns: repeat(2, 1fr); } .workload-grid { grid-template-columns: 1fr; } .kanban-loading { grid-template-columns: 1fr; } }
-@media (max-width: 767px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 767px) { .kanban-loading { grid-template-columns: 1fr; } }
 @media (max-width: 767px) {
   .filter-bar { position: static; grid-template-columns: 1fr; align-items: stretch; padding: 0; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
   .kanban-grid { display: block; margin: 0; padding: 0; overflow: visible; }
