@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
 export type ProjectRole = "owner" | "manager" | "member" | "viewer";
-export type Project = { _id: string; name: string; description: string; team?: string; members: { email: string; role: ProjectRole }[] };
+export type Project = { _id: string; name: string; description: string; team?: string; members: { email: string; role: ProjectRole }[]; repositoryFullName?: string };
 export function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");

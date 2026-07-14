@@ -18,12 +18,15 @@ export interface Task {
   sprint?: string;
   team?: string;
   dueDate?: string;
+  repository?: string;
+  pullRequestNumber?: number;
   comments: { id: string; text: string; author: string; at: string }[];
   checklist?: { id: string; text: string; done: boolean; createdAt: string }[];
   dependencies?: string[];
   watchers?: string[];
   prSyncStatus?: "matched" | "mismatched";
   prMismatchReasons?: string[];
+  updatedAt?: string;
 }
 
 
