@@ -7,6 +7,7 @@ export async function getPullRequestFiles(
   repositoryApiUrl: string,
   number: number,
   maxPages = 10,
+  token: string = env.githubApiToken,
 ): Promise<PullFile[]> {
   const files: PullFile[] = [];
   for (let page = 1; page <= maxPages; page += 1) {
@@ -14,7 +15,7 @@ export async function getPullRequestFiles(
       `${repositoryApiUrl}/pulls/${number}/files?per_page=100&page=${page}`,
       {
         headers: {
-          authorization: `Bearer ${env.githubApiToken}`,
+          authorization: `Bearer ${token}`,
           accept: "application/vnd.github+json",
         },
       },

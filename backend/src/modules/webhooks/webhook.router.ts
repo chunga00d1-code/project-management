@@ -8,10 +8,61 @@ import { retryQueue } from "../jobs/retry-queue.service.js";
 import { SettingsService } from "../settings/settings.service.js";
 import { DeliveryService } from "./delivery.service.js";
 import { getPullRequestFiles } from "./github-files.service.js";
+import { InstallationService } from "../github-app/installation.model.js";
+import { ProjectLinkService } from "../github-app/project-link.service.js";
+import { getInstallationToken } from "../github-app/github-app.service.js";
 const tasks = new TaskService();
 const settings = new SettingsService();
 const deliveries = new DeliveryService();
+const installations = new InstallationService();
+const projectLinks = new ProjectLinkService();
 export const webhookRouter = Router();
+interface InstallationPayload {
+  action: string;
+  installation: { id: number; account: { login: string } };
+  repositories?: { full_name: string }[];
+  repositories_added?: { full_name: string }[];
+  repositories_removed?: { full_name: string }[];
+}
+async function handleInstallationEvent(payload: InstallationPayload) {
+  const installationId = payload.installation.id;
+  const account = payload.installation.account.login;
+  if (payload.action === "created") {
+    const repos = (payload.repositories || []).map((r) => r.full_name);
+    await installations.upsert(installationId, account, repos);
+    for (const repo of repos) await projectLinks.linkRepositoryToProject(repo, installationId);
+  } else if (payload.action === "deleted") {
+    const existing = await installations.delete(installationId);
+    for (const repo of existing?.repositories || []) await projectLinks.unlinkRepository(repo);
+  }
+}
+async function handleInstallationRepositoriesEvent(payload: InstallationPayload) {
+  const installationId = payload.installation.id;
+  const account = payload.installation.account.login;
+  const added = (payload.repositories_added || []).map((r) => r.full_name);
+  const removed = (payload.repositories_removed || []).map((r) => r.full_name);
+  if (added.length) {
+    await installations.addRepositories(installationId, added);
+    for (const repo of added) await projectLinks.linkRepositoryToProject(repo, installationId);
+  }
+  if (removed.length) {
+    await installations.removeRepositories(installationId, removed);
+    for (const repo of removed) await projectLinks.unlinkRepository(repo);
+  }
+  if (!added.length && !removed.length && payload.action === "added")
+    await installations.upsert(installationId, account, []);
+}
+async function resolveGithubToken(repositoryFullName: string): Promise<string> {
+  const installation = await installations.findByRepository(repositoryFullName);
+  if (installation) {
+    try {
+      return await getInstallationToken(installation._id);
+    } catch {
+      return env.githubApiToken;
+    }
+  }
+  return env.githubApiToken;
+}
 webhookRouter.post("/github", async (req, res, next) => {
   try {
     const deliveryId = req.header("x-github-delivery") || "";
@@ -31,16 +82,30 @@ webhookRouter.post("/github", async (req, res, next) => {
         requested_reviewers?: { login: string }[];
       };
     }
+    const githubEvent = req.header("x-github-event");
+    if (githubEvent === "ping") return res.json({ message: "pong" });
+    if (githubEvent === "installation" || githubEvent === "installation_repositories") {
+      let installationPayload: InstallationPayload;
+      try {
+        installationPayload = JSON.parse(body.toString());
+      } catch {
+        return res.status(400).json({ error: "Invalid JSON payload" });
+      }
+      if (deliveryId && (await deliveries.seen(deliveryId)))
+        return res.json({ received: true, duplicate: true });
+      if (githubEvent === "installation") await handleInstallationEvent(installationPayload);
+      else await handleInstallationRepositoriesEvent(installationPayload);
+      if (deliveryId) await deliveries.mark(deliveryId);
+      return res.json({ received: true });
+    }
     let payload: PullRequestPayload;
     try {
       payload = JSON.parse(body.toString());
     } catch {
       return res.status(400).json({ error: "Invalid JSON payload" });
     }
-    if (req.header("x-github-event") === "ping")
-      return res.json({ message: "pong" });
     if (
-      req.header("x-github-event") !== "pull_request" ||
+      githubEvent !== "pull_request" ||
       !env.prActions.includes(payload.action)
     )
       return res.status(202).json({ ignored: true });
@@ -54,8 +119,9 @@ webhookRouter.post("/github", async (req, res, next) => {
     if (deliveryId && (await deliveries.seen(deliveryId)))
       return res.json({ received: true, duplicate: true });
     const pr = payload.pull_request;
+    const githubToken = await resolveGithubToken(payload.repository.full_name);
     const findings = await reviewDiff(
-      await getPullRequestFiles(payload.repository.url, pr.number),
+      await getPullRequestFiles(payload.repository.url, pr.number, 10, githubToken),
     );
     const runtime = await settings.get();
     const blocking = runtime.blockingSeverities?.length
@@ -97,7 +163,7 @@ webhookRouter.post("/github", async (req, res, next) => {
       const comment = await fetch(pr.comments_url, {
         method: "POST",
         headers: {
-          authorization: `Bearer ${env.githubApiToken}`,
+          authorization: `Bearer ${githubToken}`,
           accept: "application/vnd.github+json",
           "content-type": "application/json",
         },

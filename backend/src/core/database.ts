@@ -19,6 +19,8 @@ export async function ensureIndexes() {
     db.collection("realtime_events").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection("realtime_events").createIndex({ occurredAt: 1 }),
     db.collection("projects").createIndex({ "members.email": 1, updatedAt: -1 }),
+    db.collection("projects").createIndex({ repositoryFullName: 1 }, { unique: true, sparse: true }),
+    db.collection("github_installations").createIndex({ repositories: 1 }),
     db.collection("github_pr_tasks").createIndex({ repository: 1, pullRequestNumber: 1 }, { unique: true, sparse: true }),
     db.collection("github_webhook_deliveries").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db.collection("github_pr_retry_jobs").createIndex({ nextRunAt: 1, lockedUntil: 1 }),
