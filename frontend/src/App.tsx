@@ -11,14 +11,16 @@ import { RealtimeProvider } from "./realtime/RealtimeProvider";
 import { LocalizedLandingPage } from "./features/landing/LocalizedLandingPage";
 import { Overview } from "./features/overview/Overview";
 import { ReviewGridLogo } from "./components/brand/ReviewGridLogo";
-type Page = "overview" | "tasks" | "projects" | "settings" | "users" | "operations";
-const navItems: { id: Page; label: string; icon: string; permission?: "admin" | "users" }[] = [
+import { Performance } from "./features/tasks/Performance";
+type Page = "overview" | "tasks" | "projects" | "settings" | "users" | "operations" | "performance";
+const navItems: { id: Page; label: string; icon: string; permission?: "settings" | "users" | "performance" }[] = [
   { id: "overview", label: "Tổng quan", icon: "◈" },
   { id: "tasks", label: "Nhiệm vụ", icon: "▦" },
   { id: "projects", label: "Dự án", icon: "◇" },
-  { id: "settings", label: "Cấu hình", icon: "⚙", permission: "admin" },
+  { id: "performance", label: "Hiệu suất", icon: "★", permission: "performance" },
+  { id: "settings", label: "Cấu hình", icon: "⚙", permission: "settings" },
   { id: "users", label: "Thành viên", icon: "♙", permission: "users" },
-  { id: "operations", label: "Vận hành", icon: "⌁", permission: "admin" },
+  { id: "operations", label: "Vận hành", icon: "⌁", permission: "settings" },
 ];
 export function App() {
   const [loggedIn, setLoggedIn] = useState(Boolean(localStorage.getItem("token")));
@@ -30,7 +32,7 @@ export function App() {
   if (!loggedIn) return showLogin
     ? <Login onLogin={() => setLoggedIn(true)} />
     : <LocalizedLandingPage onLogin={() => setShowLogin(true)} />;
-  const visibleNav = navItems.filter((item) => !item.permission || (item.permission === "admin" ? admin : hasPermission(user.role, "users")));
-  const content = page === "overview" ? <Overview onNavigate={setPage} /> : page === "tasks" ? <TaskBoard /> : page === "projects" ? <Projects /> : page === "settings" && admin ? <Settings /> : page === "users" && hasPermission(user.role, "users") ? <Users /> : page === "operations" && admin ? <Operations /> : <Overview onNavigate={setPage} />;
+  const visibleNav = navItems.filter((item) => !item.permission || hasPermission(user.role, item.permission));
+  const content = page === "overview" ? <Overview onNavigate={setPage} /> : page === "tasks" ? <TaskBoard /> : page === "projects" ? <Projects /> : page === "performance" && hasPermission(user.role, "performance") ? <Performance /> : page === "settings" && admin ? <Settings /> : page === "users" && hasPermission(user.role, "users") ? <Users /> : page === "operations" && admin ? <Operations /> : <Overview onNavigate={setPage} />;
   return <RealtimeProvider><div className="app-container"><nav className="sidebar" aria-label="Điều hướng chính"><div className="brand"><ReviewGridLogo showTagline /></div><div className="nav-group">{visibleNav.map((item) => <button key={item.id} className={page === item.id ? "active" : ""} aria-current={page === item.id ? "page" : undefined} onClick={() => setPage(item.id)}><span className="nav-icon" aria-hidden="true">{item.icon}</span>{item.label}</button>)}</div><div className="sidebar-footer"><div className="user-chip"><span className="avatar">{(user.email || "U").charAt(0).toUpperCase()}</span><span><strong>{user.email || "Người dùng"}</strong><small>{user.role || "member"}</small></span></div><button className="sign-out" onClick={() => void signOut()}><span className="nav-icon">↪</span>Đăng xuất</button></div></nav>{content}</div></RealtimeProvider>;
 }

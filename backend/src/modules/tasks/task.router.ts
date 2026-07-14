@@ -26,6 +26,7 @@ const strings = (value: unknown, name: string, max = 50) => {
 export const taskRouter = Router();
 taskRouter.use(authenticate);
 taskRouter.get("/dashboard", taskController.dashboard);
+taskRouter.get("/performance", manage, taskController.performance);
 taskRouter.get("/search", taskController.search);
 taskRouter.get("/", taskController.list);
 taskRouter.post("/", authorize("superadmin", "admin", "manager"), taskController.create);
