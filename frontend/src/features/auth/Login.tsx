@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api/client";
 import { ReviewGridLogo } from "../../components/brand/ReviewGridLogo";
+import { PageContainer } from "../../components/layout/PageLayout";
 type LoginResult = { token: string; user: { id: string; email: string; role: string } };
 export function Login({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState("");
@@ -21,8 +22,8 @@ export function Login({ onLogin }: { onLogin: () => void }) {
     }
   }
   return (
-    <div className="login-wrapper">
-      <form className="login-form" onSubmit={submit}>
+    <PageContainer className="login-page">
+      <form className="login-form login-card" onSubmit={submit}>
         <ReviewGridLogo className="login-brand" showTagline />
         <h1>PR Review Operations</h1>
         <p style={{ textAlign: "center", color: "var(--text-secondary)", marginTop: "-0.5rem", marginBottom: "1rem" }}>
@@ -46,6 +47,6 @@ export function Login({ onLogin }: { onLogin: () => void }) {
         />
         <button className="btn-primary">Đăng nhập</button>
       </form>
-    </div>
+    </PageContainer>
   );
 }

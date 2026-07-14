@@ -144,3 +144,30 @@ article.task-card .card-actions button.btn-details:hover { background-color: var
 .settings-section { display: grid; gap: 1rem; padding: 1.25rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); }
 .settings-section h2 { padding-bottom: .5rem; border-bottom: 1px solid var(--border-color); font-size: 1.05rem; }
 .empty-state, .error-message { max-width: 100%; }
+
+/* Login */
+.login-page {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding-top: max(var(--page-gutter), env(safe-area-inset-top));
+  padding-bottom: max(var(--page-gutter), env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at 10% 20%, rgba(99, 102, 241, .1) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(168, 85, 247, .08) 0%, transparent 45%);
+}
+
+form.login-card {
+  width: min(100%, 420px);
+  max-width: none;
+}
+
+@media (max-width: 479px) {
+  form.login-card {
+    gap: 1rem;
+    padding: clamp(1.25rem, 7vw, 2rem);
+  }
+  form.login-card h1 {
+    font-size: clamp(1.65rem, 9vw, 2.25rem);
+  }
+}
