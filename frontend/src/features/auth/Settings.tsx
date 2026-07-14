@@ -48,7 +48,9 @@ export function Settings() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const { hasTelegramToken: _hasTelegramToken, hasSmtpPassword: _hasSmtpPassword, ...rest } = value;
+      const rest: Settings = { ...value };
+      delete rest.hasTelegramToken;
+      delete rest.hasSmtpPassword;
       await api("/settings", {
         method: "PUT",
         body: JSON.stringify({
