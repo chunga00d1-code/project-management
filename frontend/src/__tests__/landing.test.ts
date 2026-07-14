@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("public product landing", () => {
   it("routes signed-out visitors through the landing page before login", async () => {
     const app = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
-    expect(app).toContain("<LandingPage onLogin");
+    expect(app).toContain("<LocalizedLandingPage onLogin");
     expect(app).not.toContain("if (!loggedIn) return <Login");
   });
 
