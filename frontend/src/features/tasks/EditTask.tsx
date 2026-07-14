@@ -17,6 +17,7 @@ export function EditTask({ task, onDone, onCancel }: { task: Task; onDone: () =>
   const [startAt, setStartAt] = useState(localDateTime(task.startAt));
   const [dueAt, setDueAt] = useState(localDateTime(task.dueAt || (task.dueDate ? `${task.dueDate}T00:00:00.000Z` : undefined)));
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     if (task.projectId) void api<Collaborator[]>(`/projects/${task.projectId}/collaborators`).then(setCollaborators).catch(() => setCollaborators([]));
@@ -27,16 +28,22 @@ export function EditTask({ task, onDone, onCancel }: { task: Task; onDone: () =>
     <form style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }} onSubmit={async (event) => {
       event.preventDefault();
       if (invalidSchedule) return;
-      await api(`/tasks/${task._id}`, { method: "PATCH", body: JSON.stringify({
-        title,
-        assignee,
-        priority,
-        labels: labels.split(",").map((item) => item.trim()).filter(Boolean),
-        startAt: startAt ? new Date(startAt).toISOString() : undefined,
-        dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
-      }) });
-      onDone();
+      setSubmitError("");
+      try {
+        await api(`/tasks/${task._id}`, { method: "PATCH", body: JSON.stringify({
+          title,
+          assignee,
+          priority,
+          labels: labels.split(",").map((item) => item.trim()).filter(Boolean),
+          startAt: startAt ? new Date(startAt).toISOString() : undefined,
+          dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
+        }) });
+        onDone();
+      } catch (error) {
+        setSubmitError(error instanceof Error ? error.message : "Lưu thay đổi thất bại");
+      }
     }}>
+      {submitError && <div className="error-message">{submitError}</div>}
       <div className="grid-2">
         <div><label>Tiêu đề nhiệm vụ</label><input required value={title} onChange={(event) => setTitle(event.target.value)} /></div>
         <div><label>Người thực hiện</label><select value={assignee} onChange={(event) => setAssignee(event.target.value)}><option value="">Chưa giao</option>{collaborators.map((item) => <option key={item.login} value={item.login}>@{item.login}</option>)}</select></div>

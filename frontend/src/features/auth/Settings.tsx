@@ -12,14 +12,38 @@ type Settings = {
   blockingSeverities?: string[];
   postReviewComment?: boolean;
   githubAssigneeMappings?: string;
+  hasTelegramToken?: boolean;
+  hasSmtpPassword?: boolean;
 };
+
+function StatusBadge({ configured }: { configured: boolean }) {
+  return (
+    <span
+      className="pill"
+      style={{
+        marginLeft: "0.75rem",
+        fontSize: "0.75rem",
+        padding: "0.15rem 0.6rem",
+        color: configured ? "var(--success-color, #16a34a)" : "var(--text-secondary)",
+        borderColor: configured ? "var(--success-color, #16a34a)" : "var(--border-color)",
+      }}
+    >
+      {configured ? "✅ Đã cấu hình" : "⚪ Chưa cấu hình"}
+    </span>
+  );
+}
+
 export function Settings() {
   const [value, setValue] = useState<Settings>({});
   const [message, setMessage] = useState("");
-  
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
+
   useEffect(() => {
     void api<Settings>("/settings").then(setValue);
   }, []);
+
+  const telegramConfigured = Boolean(value.hasTelegramToken && value.telegramChatId);
+  const emailConfigured = Boolean(value.smtpHost && value.emailFrom && (value.hasSmtpPassword || value.smtpUser));
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -33,8 +57,10 @@ export function Settings() {
             : String(value.blockingSeverities || "").split(",").map(x => x.trim()).filter(Boolean),
         }),
       });
+      setMessageType("success");
       setMessage("Cấu hình đã được lưu thành công!");
     } catch (err) {
+      setMessageType("error");
       setMessage(`Lưu cấu hình thất bại: ${err instanceof Error ? err.message : String(err)}`);
     }
     setTimeout(() => setMessage(""), 3000);
@@ -47,7 +73,7 @@ export function Settings() {
       </header>
 
       {message && (
-        <div className="pill active" style={{ alignSelf: "flex-start", padding: "0.5rem 1rem", marginBottom: "1rem" }}>
+        <div className={messageType === "success" ? "success-message" : "error-message"} style={{ marginBottom: "1rem" }}>
           {message}
         </div>
       )}
@@ -56,8 +82,9 @@ export function Settings() {
         
         {/* Section 1: Telegram Notifications */}
         <div>
-          <h3 style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", marginBottom: "1rem" }}>
+          <h3 style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", marginBottom: "1rem", display: "flex", alignItems: "center" }}>
             📢 Thông báo Telegram
+            <StatusBadge configured={telegramConfigured} />
           </h3>
           <div className="grid-2">
             <div>
@@ -82,8 +109,9 @@ export function Settings() {
 
         {/* Section 2: Email & SMTP */}
         <div>
-          <h3 style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", marginBottom: "1rem" }}>
+          <h3 style={{ borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", marginBottom: "1rem", display: "flex", alignItems: "center" }}>
             📧 Cấu hình SMTP Email
+            <StatusBadge configured={emailConfigured} />
           </h3>
           <div className="grid-2">
             <div>

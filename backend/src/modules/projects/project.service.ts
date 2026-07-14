@@ -29,4 +29,17 @@ export class ProjectService {
   async findById(id: string) {
     return (await this.col()).findOne({ _id: id, repositoryFullName: { $exists: true } });
   }
+
+  async addMember(projectId: string, email: string, role: ProjectRole = "member") {
+    const col = await this.col();
+    const project = await col.findOne({ _id: projectId });
+    if (!project) return null;
+    const normalized = email.toLowerCase();
+    if ((project.members || []).some((member) => member.email.toLowerCase() === normalized)) return project;
+    await col.updateOne(
+      { _id: projectId },
+      { $push: { members: { email: normalized, role } }, $set: { updatedAt: new Date().toISOString() } },
+    );
+    return col.findOne({ _id: projectId });
+  }
 }

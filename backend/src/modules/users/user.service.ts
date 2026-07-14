@@ -36,4 +36,13 @@ export class UserService {
   async list() { return (await (await this.col()).find({}, { projection: { passwordHash: 0 } }).sort({ createdAt: -1 }).toArray()).map((user) => ({ id: user._id, email: user.email, role: user.role, active: user.active !== false, createdAt: user.createdAt })); }
   async update(id: string, input: { role?: Role; active?: boolean; password?: string }) { const col = await this.col(); const user = await col.findOne({ _id: id }); if (!user) return null; const changes: Partial<UserModel> = {}; if (input.role) changes.role = input.role; if (input.active !== undefined) changes.active = input.active; if (input.password) changes.passwordHash = await bcrypt.hash(input.password, 12); await col.updateOne({ _id: id }, { $set: changes, $inc: { tokenVersion: 1 } }); return col.findOne({ _id: id }, { projection: { passwordHash: 0 } }); }
   async create(email: string, password: string, role: Role) { const col = await this.col(); const user: UserModel = { _id: randomUUID(), email: email.toLowerCase(), passwordHash: await bcrypt.hash(password, 12), role, active: true, tokenVersion: 0, createdAt: new Date().toISOString() }; await col.insertOne(user); return { _id: user._id, email: user.email, role: user.role, active: user.active }; }
+  async findOrCreateByEmail(email: string, role: Role = "developer") {
+    const col = await this.col();
+    const normalized = email.toLowerCase();
+    const existing = await col.findOne({ email: normalized });
+    if (existing) return existing;
+    const user: UserModel = { _id: randomUUID(), email: normalized, passwordHash: await bcrypt.hash("123456", 12), role, active: true, tokenVersion: 0, createdAt: new Date().toISOString() };
+    await col.insertOne(user);
+    return user;
+  }
 }

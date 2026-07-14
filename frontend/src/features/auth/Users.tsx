@@ -10,6 +10,7 @@ export function Users() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("developer");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [showCreate, setShowCreate] = useState(false);
 
   const load = () => api<User[]>("/auth/users").then(setUsers);
@@ -24,10 +25,12 @@ export function Users() {
         method: "PATCH",
         body: JSON.stringify(body),
       });
+      setMessageType("success");
       setMessage("Cập nhật thành viên thành công! Các phiên đăng nhập hiện tại đã bị hủy bỏ.");
       setTimeout(() => setMessage(""), 5000);
       await load();
     } catch (error) {
+      setMessageType("error");
       setMessage(error instanceof Error ? error.message : "Cập nhật thất bại");
     }
   }
@@ -42,7 +45,7 @@ export function Users() {
       </header>
 
       {message && (
-        <div className="error-message" style={{ margin: "1rem 0" }}>
+        <div className={messageType === "success" ? "success-message" : "error-message"} style={{ margin: "1rem 0" }}>
           {message}
         </div>
       )}
@@ -94,7 +97,9 @@ export function Users() {
                     const next = prompt("Nhập mật khẩu mới (tối thiểu 12 ký tự):");
                     if (next) {
                       if (next.length < 12) {
-                        alert("Mật khẩu phải dài tối thiểu 12 ký tự!");
+                        setMessageType("error");
+                        setMessage("Mật khẩu phải dài tối thiểu 12 ký tự!");
+                        setTimeout(() => setMessage(""), 3000);
                       } else {
                         void update(user.id, { password: next });
                       }
@@ -128,11 +133,13 @@ export function Users() {
                 setEmail("");
                 setPassword("");
                 setRole("developer");
+                setMessageType("success");
                 setMessage("Tạo thành viên mới thành công!");
                 setTimeout(() => setMessage(""), 3000);
                 setShowCreate(false);
                 void load();
               } catch (error) {
+                setMessageType("error");
                 setMessage(error instanceof Error ? error.message : "Thêm thành viên thất bại");
               }
             }}

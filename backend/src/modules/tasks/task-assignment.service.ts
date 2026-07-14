@@ -1,6 +1,9 @@
 import { ValidationError } from "../../core/validation.js";
 import type { GitHubCollaborator } from "../github-app/collaborator.service.js";
-import type { Project } from "../projects/project.service.js";
+import type { Project, ProjectService } from "../projects/project.service.js";
+import type { RuntimeSettings } from "../settings/settings.service.js";
+import type { UserService } from "../users/user.service.js";
+import { notifyTaskAssignment } from "../notifications/notification.service.js";
 import type { TaskModel } from "./task.model.js";
 
 type AssignmentDependencies = {
@@ -30,4 +33,26 @@ export async function assertRepositoryAssignment(
     project: project.name,
     repository: project.repositoryFullName,
   };
+}
+
+export function resolveAssigneeEmail(login: string, mappings?: string): string | null {
+  if (!login || !mappings) return null;
+  const pair = String(mappings)
+    .split("\n")
+    .map((line) => line.split("=").map((part) => part.trim()))
+    .find(([githubLogin]) => githubLogin?.toLowerCase() === login.toLowerCase());
+  return pair?.[1] || null;
+}
+
+export async function provisionAssignee(
+  task: TaskModel,
+  settings: RuntimeSettings,
+  deps: { users: UserService; projects: ProjectService },
+): Promise<void> {
+  if (!task.assignee) return;
+  const email = resolveAssigneeEmail(task.assignee, settings.githubAssigneeMappings);
+  if (!email) return;
+  await deps.users.findOrCreateByEmail(email);
+  if (task.projectId) await deps.projects.addMember(task.projectId, email);
+  await notifyTaskAssignment(task, email, settings);
 }

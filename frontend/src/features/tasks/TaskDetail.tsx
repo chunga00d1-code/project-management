@@ -7,9 +7,19 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState("");
   const [itemText, setItemText] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const changed = () => {
     onChange();
+  };
+
+  const runAction = async (action: () => Promise<void>) => {
+    try {
+      setActionError("");
+      await action();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Thao tác thất bại");
+    }
   };
 
   return (
@@ -44,6 +54,7 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          {actionError && <div className="error-message">{actionError}</div>}
           {task.description && (
             <div className="project-card" style={{ padding: "1.25rem", margin: 0 }}>
               <h4 style={{ color: "var(--text-secondary)", marginBottom: "0.5rem" }}>Mô tả</h4>
@@ -61,12 +72,15 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
                     <input
                       type="checkbox"
                       checked={item.done}
-                      onChange={async (e) => {
-                        await api(`/tasks/${task._id}/checklist/${item.id}`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ done: e.target.checked }),
+                      onChange={(e) => {
+                        const done = e.target.checked;
+                        void runAction(async () => {
+                          await api(`/tasks/${task._id}/checklist/${item.id}`, {
+                            method: "PATCH",
+                            body: JSON.stringify({ done }),
+                          });
+                          changed();
                         });
-                        changed();
                       }}
                     />
                     <span style={{ textDecoration: item.done ? "line-through" : "none", color: item.done ? "var(--text-muted)" : "var(--text-primary)" }}>
@@ -77,14 +91,16 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
               </ul>
               <form
                 style={{ display: "flex", gap: "0.5rem" }}
-                onSubmit={async (e) => {
+                onSubmit={(e) => {
                   e.preventDefault();
-                  await api(`/tasks/${task._id}/checklist`, {
-                    method: "POST",
-                    body: JSON.stringify({ text: itemText }),
+                  void runAction(async () => {
+                    await api(`/tasks/${task._id}/checklist`, {
+                      method: "POST",
+                      body: JSON.stringify({ text: itemText }),
+                    });
+                    setItemText("");
+                    changed();
                   });
-                  setItemText("");
-                  changed();
                 }}
               >
                 <input
@@ -170,14 +186,16 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
             </ul>
             <form
               style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
-              onSubmit={async (e) => {
+              onSubmit={(e) => {
                 e.preventDefault();
-                await api(`/tasks/${task._id}/comments`, {
-                  method: "POST",
-                  body: JSON.stringify({ text }),
+                void runAction(async () => {
+                  await api(`/tasks/${task._id}/comments`, {
+                    method: "POST",
+                    body: JSON.stringify({ text }),
+                  });
+                  setText("");
+                  changed();
                 });
-                setText("");
-                changed();
               }}
             >
               <textarea

@@ -21,6 +21,7 @@ export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onC
   const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
   const [collaboratorsError, setCollaboratorsError] = useState("");
   const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     void api<Project[]>("/projects").then((items) => {
@@ -57,27 +58,34 @@ export function CreateTask({ onCreated, onCancel }: { onCreated: () => void; onC
       onSubmit={async (event) => {
         event.preventDefault();
         if (!project?.repositoryFullName || invalidSchedule) return;
-        const created = await api<Task>("/tasks", {
-          method: "POST",
-          body: JSON.stringify({
-            title,
-            priority,
-            projectId: project._id,
-            repository: project.repositoryFullName,
-            assignee,
-            startAt: startAt ? new Date(startAt).toISOString() : undefined,
-            dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
-            labels: labels.split(",").map((item) => item.trim()).filter(Boolean),
-          }),
-        });
-        setTitle("");
-        setLabels("");
-        setAssignee("");
-        setStartAt("");
-        setDueAt("");
-        setCreatedCode(created.code || "");
+        setSubmitError("");
+        try {
+          const created = await api<Task>("/tasks", {
+            method: "POST",
+            body: JSON.stringify({
+              title,
+              priority,
+              projectId: project._id,
+              repository: project.repositoryFullName,
+              assignee,
+              startAt: startAt ? new Date(startAt).toISOString() : undefined,
+              dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
+              labels: labels.split(",").map((item) => item.trim()).filter(Boolean),
+            }),
+          });
+          setTitle("");
+          setLabels("");
+          setAssignee("");
+          setStartAt("");
+          setDueAt("");
+          setCreatedCode(created.code || "");
+        } catch (error) {
+          setSubmitError(error instanceof Error ? error.message : "Tạo nhiệm vụ thất bại");
+        }
       }}
     >
+      {submitError && <div className="error-message">{submitError}</div>}
+
       {createdCode && (
         <div className="toast-message" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
           <span>✅ Đã tạo <strong>{createdCode}</strong> — dán mã này vào tiêu đề hoặc mô tả Pull Request tương ứng.</span>
