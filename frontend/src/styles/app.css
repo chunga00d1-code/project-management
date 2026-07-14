@@ -7,19 +7,6 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
 }
 
-/* Layout System */
-.app-container {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  min-height: 100vh;
-}
-
-@media (max-width: 900px) {
-  .app-container {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Navigation / Sidebar */
 nav.sidebar {
   background-color: var(--bg-secondary);
@@ -34,18 +21,6 @@ nav.sidebar {
   top: 0;
 }
 
-@media (max-width: 900px) {
-  nav.sidebar {
-    height: auto;
-    position: relative;
-    flex-direction: row;
-    flex-wrap: wrap;
-    padding: 1rem;
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-  }
-}
-
 nav.sidebar .brand {
   font-family: var(--font-heading);
   font-size: 1.25rem;
@@ -57,13 +32,6 @@ nav.sidebar .brand {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-@media (max-width: 900px) {
-  nav.sidebar .brand {
-    margin-bottom: 0;
-    margin-right: auto;
-  }
 }
 
 nav.sidebar button {
@@ -97,15 +65,6 @@ nav.sidebar button.active {
 nav.sidebar button.sign-out {
   margin-top: auto;
   color: #f87171;
-}
-
-@media (max-width: 900px) {
-  nav.sidebar button {
-    width: auto;
-  }
-  nav.sidebar button.sign-out {
-    margin-top: 0;
-  }
 }
 
 /* Main Content Area */
@@ -652,7 +611,7 @@ article.project-card, .list-container li {
 }
 
 /* Usability refresh */
-.app-container > main { min-width: 0; }
+.app-shell__content > main { min-width: 0; }
 .sidebar .brand { line-height: 1.15; }
 .sidebar .brand .reviewgrid-logo { min-width: 0; }
 .sidebar .brand .reviewgrid-logo__copy { min-width: 0; }
@@ -707,7 +666,7 @@ article.task-card button.task-title:hover { color: #a5b4fc; }
 .card-actions .btn-icon-danger:hover { background: #ef4444; color: white; }
 .error-message { padding: .8rem 1rem; border: 1px solid rgba(239,68,68,.22); border-radius: var(--radius-md); background: rgba(239,68,68,.09); color: #fca5a5; }
 @media (max-width: 1100px) { .filter-bar { grid-template-columns: 1fr 1fr; } .clear-filter { width: 100%; } }
-@media (max-width: 900px) { .nav-group { flex-direction: row; flex: initial; order: 3; width: 100%; overflow-x: auto; padding-top: .5rem; } .sidebar-footer { margin-left: auto; flex-direction: row; padding: 0; border: 0; } .user-chip { display: none; } nav.sidebar button { white-space: nowrap; } .kanban-column { max-height: none; } }
+@media (max-width: 900px) { .kanban-column { max-height: none; } }
 @media (max-width: 640px) { .filter-bar { position: static; grid-template-columns: 1fr; } .kanban-grid { grid-template-columns: repeat(6, minmax(84vw, 1fr)); } main header h1 { font-size: 1.55rem; } .dashboard-grid { grid-template-columns: repeat(2, 1fr) !important; } dialog { width: 96%; padding: 1.25rem; } }
 
 /* Realtime and query states */
