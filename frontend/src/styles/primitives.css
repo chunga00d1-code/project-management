@@ -61,3 +61,6 @@
 .overflow-text { display: inline-flex; max-width: 100%; min-width: 0; align-items: center; gap: .5rem; }
 .overflow-text__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .overflow-text__copy { flex: 0 0 auto; min-height: 32px; padding: .3rem .55rem; border-color: var(--border-color); background: transparent; color: var(--text-secondary); font-size: .72rem; }
+.project-card__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; min-width: 0; }
+.project-card__content { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.project-card__content h3 { min-width: 0; max-width: 100%; }

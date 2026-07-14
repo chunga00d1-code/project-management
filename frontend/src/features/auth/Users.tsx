@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
 import { OverflowText } from "../../components/data/OverflowText";
@@ -14,13 +14,13 @@ export function Users() {
   const [message, setMessage] = useState("");
   const [showCreate, setShowCreate] = useState(false);
 
-  const load = () => api<User[]>("/auth/users").then(setUsers);
+  const load = useCallback(() => api<User[]>("/auth/users").then(setUsers), []);
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
   useRealtimeRefresh(["user."], () => void load());
 
-  async function update(id: string, body: Record<string, unknown>) {
+  const update = useCallback(async (id: string, body: Record<string, unknown>) => {
     try {
       await api(`/auth/users/${id}`, {
         method: "PATCH",
@@ -32,14 +32,14 @@ export function Users() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Cập nhật thất bại");
     }
-  }
+  }, [load]);
 
-  const columns: DataColumn<User>[] = [
+  const columns = useMemo<DataColumn<User>[]>(() => [
     { key: "email", header: "Email", cardPriority: "primary", render: (user) => <OverflowText value={user.email} copyable label="email" /> },
     { key: "status", header: "Trạng thái", render: (user) => <span className={`pill ${user.active ? "active" : "disabled"}`}>{user.active ? "Đang hoạt động" : "Bị vô hiệu hóa"}</span> },
     { key: "role", header: "Vai trò", render: (user) => <strong>{user.role}</strong> },
     { key: "actions", header: "Thao tác", render: (user) => <div className="cluster"><select disabled={user.role === "superadmin"} value={user.role} onChange={(event) => void update(user.id, { role: event.target.value })} aria-label={`Vai trò ${user.email}`}>{["superadmin", "admin", "manager", "developer"].map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select><button className="btn-danger" disabled={user.role === "superadmin"} onClick={() => void update(user.id, { active: !user.active })}>{user.active ? "Vô hiệu hóa" : "Kích hoạt"}</button><button className="btn-primary" onClick={() => { const next = prompt("Nhập mật khẩu mới (tối thiểu 12 ký tự):"); if (next) { if (next.length < 12) alert("Mật khẩu phải dài tối thiểu 12 ký tự!"); else void update(user.id, { password: next }); } }}>Đặt lại MK</button></div> },
-  ];
+  ], [update]);
   return (
     <main>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import { OverflowText } from "../../components/data/OverflowText";
 import { ResponsiveDataView, type DataColumn } from "../../components/data/ResponsiveDataView";
@@ -13,24 +13,24 @@ export function Operations() {
   const [jobs, setJobs] = useState<Dead[]>([]);
   const [error, setError] = useState("");
   const [realtime, setRealtime] = useState<RealtimeStats>();
-  const load = () => Promise.all([api<{ items: Audit[] }>("/operations/audit"), api<Dead[]>("/operations/dead-letter"), api<RealtimeStats>("/operations/realtime")]).then(([a, j, realtimeValue]) => { setAudit(a.items); setJobs(j); setRealtime(realtimeValue); }).catch((reason: Error) => setError(reason.message));
-  useEffect(() => { void load(); }, []);
+  const load = useCallback(() => Promise.all([api<{ items: Audit[] }>("/operations/audit"), api<Dead[]>("/operations/dead-letter"), api<RealtimeStats>("/operations/realtime")]).then(([a, j, realtimeValue]) => { setAudit(a.items); setJobs(j); setRealtime(realtimeValue); }).catch((reason: Error) => setError(reason.message)), []);
+  useEffect(() => { void load(); }, [load]);
   useRealtimeRefresh(["operations.", "notification."], () => void load());
 
-  const jobColumns: DataColumn<Dead>[] = [
+  const jobColumns = useMemo<DataColumn<Dead>[]>(() => [
     { key: "type", header: "Loại", cardPriority: "primary", render: (job) => <span className="pill">{job.type}</span> },
     { key: "repository", header: "Kho mã nguồn", render: (job) => <OverflowText value={job.payload.repository} copyable label="repository" /> },
     { key: "pr", header: "PR", render: (job) => `#${job.payload.number}` },
     { key: "attempts", header: "Số lần thử", render: (job) => job.attempts },
     { key: "error", header: "Lỗi", render: (job) => job.lastError ? <OverflowText value={job.lastError} copyable label="lỗi" /> : "—" },
     { key: "retry", header: "Thao tác", render: (job) => <button className="btn-primary" onClick={async () => { await api(`/operations/dead-letter/${job._id}/retry`, { method: "POST" }); void load(); }}>🔄 Thực hiện lại (Retry)</button> },
-  ];
-  const auditColumns: DataColumn<Audit>[] = [
+  ], [load]);
+  const auditColumns = useMemo<DataColumn<Audit>[]>(() => [
     { key: "at", header: "Thời gian", render: (item) => new Date(item.at).toLocaleString("vi-VN") },
     { key: "actor", header: "Người thực hiện", render: (item) => item.actor || "hệ thống" },
     { key: "action", header: "Hành động", cardPriority: "primary", render: (item) => <strong>{item.action}</strong> },
     { key: "target", header: "Đối tượng", render: (item) => <OverflowText value={item.target} copyable label="đối tượng" /> },
-  ];
+  ], []);
 
   return <main>
     <header><h2>Bảng Vận Hành Hệ Thống</h2></header>

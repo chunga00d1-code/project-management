@@ -36,8 +36,8 @@ export function Projects() {
       <ResponsiveGrid minItemWidth="20rem" style={{ marginTop: "1.5rem" }}>
         {projects.map((project) => (
           <article key={project._id} className="project-card" style={{ margin: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start" }}>
-              <div>
+            <div className="project-card__header">
+              <div className="project-card__content" style={{ minWidth: 0 }}>
                 <span className="pill">Đồng bộ bởi GitHub App</span>
                 <h3 style={{ marginTop: ".75rem" }}><OverflowText value={project.repositoryFullName ?? ""} copyable label="repository" /></h3>
               </div>
