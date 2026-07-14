@@ -44,3 +44,20 @@
   .overlay--sheet { width: 100%; height: min(100dvh, 100%); max-height: 100%; border-radius: 0; }
   .overlay__footer.action-bar--sticky { margin: 0; }
 }
+
+.data-table-wrap { width: 100%; min-width: 0; overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--radius-lg); }
+.data-table { width: 100%; border-collapse: collapse; background: var(--bg-secondary); }
+.data-table th, .data-table td { padding: .85rem 1rem; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: middle; }
+.data-table th { color: var(--text-muted); font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; }
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-card-list { display: grid; gap: 1rem; min-width: 0; }
+.data-card { min-width: 0; padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--bg-secondary); }
+.data-card dl { display: grid; gap: .75rem; margin: 0; }
+.data-card__field { display: grid; grid-template-columns: minmax(6rem, .7fr) minmax(0, 1.3fr); gap: .75rem; align-items: start; }
+.data-card__field dt { color: var(--text-muted); font-size: .75rem; font-weight: 700; }
+.data-card__field dd { min-width: 0; margin: 0; }
+.data-card__field--primary { padding-bottom: .75rem; border-bottom: 1px solid var(--border-color); }
+.data-card__field--primary dd { font-weight: 700; }
+.overflow-text { display: inline-flex; max-width: 100%; min-width: 0; align-items: center; gap: .5rem; }
+.overflow-text__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overflow-text__copy { flex: 0 0 auto; min-height: 32px; padding: .3rem .55rem; border-color: var(--border-color); background: transparent; color: var(--text-secondary); font-size: .72rem; }

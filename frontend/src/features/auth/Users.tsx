@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { useRealtimeRefresh } from "../../realtime/useRealtimeRefresh";
+import { OverflowText } from "../../components/data/OverflowText";
+import { ResponsiveDataView, type DataColumn } from "../../components/data/ResponsiveDataView";
 
 type User = { id: string; email: string; role: string; active: boolean; createdAt: string };
 
@@ -32,6 +34,12 @@ export function Users() {
     }
   }
 
+  const columns: DataColumn<User>[] = [
+    { key: "email", header: "Email", cardPriority: "primary", render: (user) => <OverflowText value={user.email} copyable label="email" /> },
+    { key: "status", header: "Trạng thái", render: (user) => <span className={`pill ${user.active ? "active" : "disabled"}`}>{user.active ? "Đang hoạt động" : "Bị vô hiệu hóa"}</span> },
+    { key: "role", header: "Vai trò", render: (user) => <strong>{user.role}</strong> },
+    { key: "actions", header: "Thao tác", render: (user) => <div className="cluster"><select disabled={user.role === "superadmin"} value={user.role} onChange={(event) => void update(user.id, { role: event.target.value })} aria-label={`Vai trò ${user.email}`}>{["superadmin", "admin", "manager", "developer"].map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}</select><button className="btn-danger" disabled={user.role === "superadmin"} onClick={() => void update(user.id, { active: !user.active })}>{user.active ? "Vô hiệu hóa" : "Kích hoạt"}</button><button className="btn-primary" onClick={() => { const next = prompt("Nhập mật khẩu mới (tối thiểu 12 ký tự):"); if (next) { if (next.length < 12) alert("Mật khẩu phải dài tối thiểu 12 ký tự!"); else void update(user.id, { password: next }); } }}>Đặt lại MK</button></div> },
+  ];
   return (
     <main>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -47,67 +55,9 @@ export function Users() {
         </div>
       )}
 
-      {/* Grid of Users List */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      <div className="stack">
         <h3>📋 Danh Sách Thành Viên ({users.length})</h3>
-        <div className="grid-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: "1.5rem" }}>
-          {users.map((user) => (
-            <article key={user.id} className="project-card" style={{ margin: 0, gap: "1rem" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <strong style={{ fontSize: "1.1rem", wordBreak: "break-all" }}>{user.email}</strong>
-                <div className="flex-row" style={{ gap: "0.5rem" }}>
-                  <span className={`pill ${user.active ? "active" : "disabled"}`}>
-                    {user.active ? "Đang hoạt động" : "Bị vô hiệu hóa"}
-                  </span>
-                  <span className="pill">
-                    Vai trò: <strong>{user.role}</strong>
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex-row" style={{ gap: "0.5rem", marginTop: "0.5rem" }}>
-                <select
-                  disabled={user.role === "superadmin"}
-                  value={user.role}
-                  onChange={(e) => void update(user.id, { role: e.target.value })}
-                  style={{ padding: "0.4rem", fontSize: "0.85rem", width: "auto" }}
-                >
-                  {["superadmin", "admin", "manager", "developer"].map((item) => (
-                    <option key={item} value={item}>
-                      {item.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  className="btn-danger"
-                  disabled={user.role === "superadmin"}
-                  onClick={() => void update(user.id, { active: !user.active })}
-                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
-                >
-                  {user.active ? "Vô hiệu hóa" : "Kích hoạt"}
-                </button>
-
-                <button
-                  className="btn-primary"
-                  onClick={() => {
-                    const next = prompt("Nhập mật khẩu mới (tối thiểu 12 ký tự):");
-                    if (next) {
-                      if (next.length < 12) {
-                        alert("Mật khẩu phải dài tối thiểu 12 ký tự!");
-                      } else {
-                        void update(user.id, { password: next });
-                      }
-                    }
-                  }}
-                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
-                >
-                  Đặt lại MK
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+        <ResponsiveDataView rows={users} rowKey={(user) => user.id} columns={columns} caption="Danh sách thành viên" empty={<div className="empty-state"><p>Chưa có thành viên.</p></div>} />
       </div>
 
       {showCreate && (
