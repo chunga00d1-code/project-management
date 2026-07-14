@@ -8,7 +8,6 @@ type Settings = {
   smtpUser?: string;
   smtpPassword?: string;
   emailFrom?: string;
-  emailTo?: string;
   blockingSeverities?: string[];
   postReviewComment?: boolean;
   githubAssigneeMappings?: string;
@@ -155,23 +154,13 @@ export function Settings() {
               />
             </div>
           </div>
-          <div className="grid-2" style={{ marginTop: "1rem" }}>
-            <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Email gửi đi (Sender)</label>
-              <input
-                placeholder="VD: no-reply@company.com"
-                value={value.emailFrom || ""}
-                onChange={(e) => setValue({ ...value, emailFrom: e.target.value })}
-              />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Email nhận thông báo</label>
-              <input
-                placeholder="Email nhận các báo cáo cảnh báo..."
-                value={value.emailTo || ""}
-                onChange={(e) => setValue({ ...value, emailTo: e.target.value })}
-              />
-            </div>
+          <div style={{ marginTop: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-secondary)" }}>Email gửi đi (Sender)</label>
+            <input
+              placeholder="VD: no-reply@company.com"
+              value={value.emailFrom || ""}
+              onChange={(e) => setValue({ ...value, emailFrom: e.target.value })}
+            />
           </div>
         </div>
 

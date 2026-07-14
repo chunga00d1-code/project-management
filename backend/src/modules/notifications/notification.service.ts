@@ -28,31 +28,6 @@ export async function notifyReview(
         },
       ),
     );
-  if (
-    (settings.smtpHost) &&
-    (settings.emailFrom) &&
-    (settings.emailTo)
-  )
-    jobs.push(
-      nodemailer
-        .createTransport({
-          host: settings.smtpHost,
-          port: settings.smtpPort,
-          auth:
-            settings.smtpUser
-              ? {
-                  user: settings.smtpUser,
-                  pass: settings.smtpPassword,
-                }
-              : undefined,
-        })
-        .sendMail({
-          from: settings.emailFrom,
-          to: settings.emailTo,
-          subject: `PR review ${repository} #${number}`,
-          text,
-        }),
-    );
   await Promise.all(jobs);
 }
 export async function notifyMismatch(
@@ -81,31 +56,6 @@ export async function notifyMismatch(
           }),
         },
       ),
-    );
-  if (
-    (settings.smtpHost) &&
-    (settings.emailFrom) &&
-    (settings.emailTo)
-  )
-    jobs.push(
-      nodemailer
-        .createTransport({
-          host: settings.smtpHost,
-          port: settings.smtpPort,
-          auth:
-            settings.smtpUser
-              ? {
-                  user: settings.smtpUser,
-                  pass: settings.smtpPassword,
-                }
-              : undefined,
-        })
-        .sendMail({
-          from: settings.emailFrom,
-          to: settings.emailTo,
-          subject: `Task ${taskCode} mismatch: PR ${repository} #${number}`,
-          text,
-        }),
     );
   await Promise.all(jobs);
 }
