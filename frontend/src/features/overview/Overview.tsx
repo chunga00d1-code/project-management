@@ -13,6 +13,7 @@ const statusLabels: Record<string, string> = {
   done: "🎉 Hoàn thành",
   cancelled: "🚫 Đã hủy",
 };
+const taskDeadline = (task: Task) => task.dueAt || (task.dueDate ? `${task.dueDate}T23:59:59` : undefined);
 
 export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "projects") => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -42,10 +43,9 @@ export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "project
       return all;
     }, {}),
   ).sort((a, b) => b[1] - a[1]);
-  const today = new Date().toISOString().slice(0, 10);
   const overdue = tasks
-    .filter((t) => t.dueDate && t.dueDate < today && !["done", "cancelled"].includes(t.status))
-    .sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""));
+    .filter((task) => { const due = taskDeadline(task); return Boolean(due && new Date(due).getTime() < Date.now() && !["done", "cancelled"].includes(task.status)); })
+    .sort((a, b) => (taskDeadline(a) || "").localeCompare(taskDeadline(b) || ""));
   const activeTasks = tasks.filter((t) => !["done", "cancelled"].includes(t.status));
   const byAssignee = Object.entries(
     activeTasks.reduce<Record<string, number>>((all, task) => {
@@ -124,7 +124,7 @@ export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "project
               <div key={task._id} className="project-card" style={{ margin: 0, borderLeft: "4px solid var(--priority-urgent-text, #f87171)", flexDirection: "column", alignItems: "stretch", gap: "0.25rem", cursor: "pointer" }} onClick={() => onNavigate("tasks")}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <strong>{task.code ? `${task.code} · ` : ""}{task.title}</strong>
-                  <span style={{ color: "var(--priority-urgent-text, #f87171)" }}>Hạn: {task.dueDate}</span>
+                  <span style={{ color: "var(--priority-urgent-text, #f87171)" }}>Hạn: {task.dueAt ? new Date(task.dueAt).toLocaleString("vi-VN") : task.dueDate}</span>
                 </div>
                 <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
                   {task.assignee || "Chưa giao"} · {task.project || "Chưa gán dự án"}
@@ -147,7 +147,6 @@ export function Overview({ onNavigate }: { onNavigate: (page: "tasks" | "project
               </div>
               {project.description && <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", margin: 0 }}>{project.description}</p>}
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                {project.team && <span>Team: {project.team}</span>}
                 <span>{project.members.length} thành viên</span>
                 {project.repositoryFullName && <span>Repo: {project.repositoryFullName}</span>}
               </div>

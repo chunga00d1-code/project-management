@@ -221,8 +221,7 @@ webhookRouter.post("/github", async (req, res, next) => {
         if (task.assignee && assignee && task.assignee.toLowerCase() !== assignee.toLowerCase())
           reasons.push("assignee_mismatch");
         if (
-          task.dueDate &&
-          task.dueDate < new Date().toISOString().slice(0, 10) &&
+          (task.dueAt ? Date.parse(task.dueAt) < Date.now() : Boolean(task.dueDate && task.dueDate < new Date().toISOString().slice(0, 10))) &&
           !["done", "cancelled"].includes(task.status)
         )
           reasons.push("overdue");

@@ -18,6 +18,8 @@ export interface Task {
   sprint?: string;
   team?: string;
   dueDate?: string;
+  startAt?: string;
+  dueAt?: string;
   repository?: string;
   pullRequestNumber?: number;
   comments: { id: string; text: string; author: string; at: string }[];

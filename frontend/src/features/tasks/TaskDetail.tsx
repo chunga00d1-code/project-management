@@ -21,7 +21,7 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
             <span className={`badge-priority ${task.priority}`}>{task.priority.toUpperCase()}</span>
             <span className="pill" style={{ textTransform: "capitalize" }}>Trạng thái: {task.status}</span>
             {task.project && <span>📁 {task.project}</span>}
-            {task.sprint && <span>🏃 {task.sprint}</span>}
+            {task.repository && <span>⌘ {task.repository}</span>}
           </div>
         </div>
         <button
@@ -108,12 +108,12 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
                   <strong>{task.assignee || "Chưa giao"}</strong>
                 </div>
                 <div>
-                  <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Team phụ trách: </span>
-                  <strong>{task.team || "—"}</strong>
+                  <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Thời gian bắt đầu: </span>
+                  <strong>{task.startAt ? new Date(task.startAt).toLocaleString("vi-VN") : "Không có"}</strong>
                 </div>
                 <div>
                   <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Hạn chót: </span>
-                  <strong>{task.dueDate ? new Date(task.dueDate).toLocaleDateString("vi-VN") : "Không có"}</strong>
+                  <strong>{task.dueAt ? new Date(task.dueAt).toLocaleString("vi-VN") : task.dueDate ? new Date(`${task.dueDate}T23:59:59`).toLocaleString("vi-VN") : "Không có"}</strong>
                 </div>
                 <div>
                   <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Nhiệm vụ phụ thuộc: </span>

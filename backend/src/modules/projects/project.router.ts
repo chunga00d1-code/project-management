@@ -1,16 +1,48 @@
-﻿import { Router } from "express";
-import { authenticate, authorize, type AuthRequest } from "../../core/auth.js";
-import { audit } from "../../core/audit.service.js";
-import { object, text, ValidationError } from "../../core/validation.js";
-import { ProjectService, type ProjectRole } from "./project.service.js";
-const projects = new ProjectService(); const roles: ProjectRole[] = ["owner", "manager", "member", "viewer"];
-const user = (req: import("express").Request) => (req as AuthRequest).user!; const admin = (req: import("express").Request) => ["superadmin", "admin"].includes(user(req).role);
-const createInput = (body: unknown) => { const value = object(body); return { name: text(value.name, "name", 120, true)!, description: text(value.description, "description", 5000) || "", team: text(value.team, "team", 100) }; };
-const updateInput = (body: unknown) => { const value = object(body); if (Object.keys(value).some((key) => !["name", "description", "team"].includes(key))) throw new ValidationError("Unsupported project field"); const result: { name?: string; description?: string; team?: string } = {}; for (const field of ["name", "description", "team"] as const) { const item = text(value[field], field, field === "description" ? 5000 : 120); if (item !== undefined) result[field] = item; } if (!Object.keys(result).length) throw new ValidationError("No project fields supplied"); return result; };
-async function manageable(req: import("express").Request, id: string) { if (admin(req)) return true; return ["owner", "manager"].includes((await projects.memberRole(id, user(req).email)) || ""); }
-export const projectRouter = Router(); projectRouter.use(authenticate);
-projectRouter.get("/", async (req, res, next) => { try { res.json(await projects.list(user(req).email, admin(req))); } catch (error) { next(error); } });
-projectRouter.post("/", authorize("superadmin", "admin", "manager"), async (req, res, next) => { try { const project = await projects.create(createInput(req.body), user(req).email); await audit({ actor: user(req).email, action: "project.create", target: project._id }); res.status(201).json(project); } catch (error) { if (error instanceof ValidationError) return res.status(400).json({ error: error.message }); next(error); } });
-projectRouter.get("/:id", async (req, res, next) => { try { const project = await projects.get(String(req.params.id), user(req).email, admin(req)); if (!project) return res.status(404).json({ error: "Project not found" }); res.json(project); } catch (error) { next(error); } });
-projectRouter.patch("/:id", async (req, res, next) => { try { const id = String(req.params.id); if (!(await manageable(req, id))) return res.status(403).json({ error: "Project manager role required" }); const updated = await projects.update(id, updateInput(req.body)); if (!updated) return res.status(404).json({ error: "Project not found" }); await audit({ actor: user(req).email, action: "project.update", target: id }); res.json(updated); } catch (error) { if (error instanceof ValidationError) return res.status(400).json({ error: error.message }); next(error); } });
-projectRouter.put("/:id/members/:email", async (req, res, next) => { try { const id = String(req.params.id); if (!(await manageable(req, id))) return res.status(403).json({ error: "Project manager role required" }); const role = String(req.body?.role) as ProjectRole; if (!roles.includes(role)) return res.status(400).json({ error: "Invalid project role" }); await projects.setMember(id, String(req.params.email), role); await audit({ actor: user(req).email, action: "project.member.set", target: id, metadata: { email: req.params.email, role } }); res.status(204).end(); } catch (error) { next(error); } });
+import { Router } from "express";
+import { authenticate, type AuthRequest } from "../../core/auth.js";
+import {
+  GitHubCollaboratorError,
+  listRepositoryCollaborators,
+} from "../github-app/collaborator.service.js";
+import { ProjectService } from "./project.service.js";
+
+const projects = new ProjectService();
+const user = (req: import("express").Request) => (req as AuthRequest).user!;
+const admin = (req: import("express").Request) => ["superadmin", "admin"].includes(user(req).role);
+
+export const projectRouter = Router();
+projectRouter.use(authenticate);
+
+projectRouter.get("/", async (req, res, next) => {
+  try {
+    res.json(await projects.list(user(req).email, admin(req)));
+  } catch (error) {
+    next(error);
+  }
+});
+
+projectRouter.get("/:id/collaborators", async (req, res, next) => {
+  try {
+    const project = await projects.get(String(req.params.id), user(req).email, admin(req));
+    if (!project) return res.status(404).json({ error: "Repository not found" });
+    if (!project.repositoryFullName || !project.installationId) {
+      return res.status(400).json({ error: "Repository is not linked to GitHub" });
+    }
+    res.json(await listRepositoryCollaborators(project.repositoryFullName, project.installationId));
+  } catch (error) {
+    if (error instanceof GitHubCollaboratorError) {
+      return res.status(502).json({ error: "Không thể tải thành viên repository từ GitHub" });
+    }
+    next(error);
+  }
+});
+
+projectRouter.get("/:id", async (req, res, next) => {
+  try {
+    const project = await projects.get(String(req.params.id), user(req).email, admin(req));
+    if (!project) return res.status(404).json({ error: "Repository not found" });
+    res.json(project);
+  } catch (error) {
+    next(error);
+  }
+});

@@ -10,6 +10,8 @@ export interface TaskModel {
   status: TaskStatus;
   priority: Priority;
   dueDate?: string;
+  startAt?: string;
+  dueAt?: string;
   labels: string[];
   project?: string;
   projectId?: string;
