@@ -97,5 +97,11 @@ export class AutomationRepository implements AutomationStore {
       { _id: id, status: expected } as Filter<AutomationExecution>, { $set: { status: next, updatedAt: new Date().toISOString() } }, { returnDocument: "after" },
     )) ?? undefined;
   }
+  async claimExecution(owner: string, now: Date, until: Date) {
+    return (await this.db.collection<AutomationExecution>("automation_executions").findOneAndUpdate({ status: { $in: ["running", "compensating"] }, $and: [{ $or: [{ nextAttemptAt: { $exists: false } }, { nextAttemptAt: { $lte: now.toISOString() } }] }, { $or: [{ lease: { $exists: false } }, { "lease.until": { $lte: now } }] }] } as Filter<AutomationExecution>, { $set: { lease: { owner, until }, updatedAt: now.toISOString() } }, { sort: { updatedAt: 1 }, returnDocument: "after" })) ?? undefined;
+  }
+  async renewLease(id: string, owner: string, until: Date) { return (await this.db.collection<AutomationExecution>("automation_executions").updateOne({ _id: id, "lease.owner": owner } as Filter<AutomationExecution>, { $set: { "lease.until": until } })).matchedCount === 1; }
+  async saveExecution(execution: AutomationExecution, owner: string) { return (await this.db.collection<AutomationExecution>("automation_executions").replaceOne({ _id: execution._id, "lease.owner": owner } as Filter<AutomationExecution>, execution)).matchedCount === 1; }
+  async releaseLease(id: string, owner: string, now: Date) { return (await this.db.collection<AutomationExecution>("automation_executions").updateOne({ _id: id, "lease.owner": owner } as Filter<AutomationExecution>, { $set: { "lease.until": now } })).matchedCount === 1; }
 }
 function isDuplicate(error: unknown): boolean { return typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000; }

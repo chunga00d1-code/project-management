@@ -60,6 +60,7 @@ export interface ExecutionPlan {
 
 export interface ActionAttempt {
   actionId: string;
+  operation?: "execute" | "compensate";
   attempt: number;
   status: "running" | "succeeded" | "failed" | "compensated" | "compensation_failed";
   startedAt: string;
@@ -79,6 +80,7 @@ export interface AutomationExecution {
   attempts: ActionAttempt[];
   approval?: { decidedBy: string; decidedAt: string; decision: "approved" | "rejected"; inputFingerprint: string };
   lease?: { owner: string; until: Date };
+  nextAttemptAt?: string;
   createdAt: string;
   updatedAt: string;
 }
