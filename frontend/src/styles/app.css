@@ -765,7 +765,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 article.task-card { gap: .8rem; padding: 1rem; border-left: 3px solid var(--status-todo); }
 article.task-card.priority-high { border-left-color: var(--priority-high-text); }
 article.task-card.priority-urgent { border-left-color: var(--priority-urgent-text); }
-.task-card-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.task-card-top { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .5rem; }
+article.task-card-compact { min-width: 0; overflow: hidden; cursor: pointer; }
+article.task-card-compact:active { cursor: pointer; }
+article.task-card-compact .task-card-top > * { min-width: 0; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+article.task-card-compact .task-title { min-width: 0; margin: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; font-size: 1rem; line-height: 1.42; }
+.task-card-summary { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .5rem; color: var(--text-secondary); font-size: .76rem; }
+.task-card-summary > span { min-width: 0; }
+.task-card-summary .task-assignee { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-card-summary .due-badge { flex: 0 1 auto; max-width: 48%; overflow: hidden; text-overflow: ellipsis; }
 .badge-priority { letter-spacing: .04em; }
 .due-badge { color: var(--text-muted); font-size: .7rem; font-weight: 650; white-space: nowrap; }
 .due-badge.overdue { color: var(--priority-urgent-text); }

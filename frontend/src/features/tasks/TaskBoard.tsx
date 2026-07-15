@@ -20,6 +20,7 @@ export function TaskBoard() {
   const { isMobileTaskView } = useResponsiveViewport();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const createButtonRef = useRef<HTMLButtonElement>(null);
+  const selectedCardRef = useRef<HTMLElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [query, setQuery] = useState<TaskQuery>({ q: "", priority: "", project: "" });
@@ -59,7 +60,7 @@ export function TaskBoard() {
       {error && <div className="error-message" role="alert">{error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"}</div>}
       {statusMutation.isPending && <div className="toast-message">Đang đồng bộ thay đổi…</div>}
 
-      {isMobileTaskView && !tasksQuery.isLoading && <MobileTaskList tasks={tasks} collapsed={collapsed} onToggle={(status) => setCollapsed((current) => { const next = new Set(current); if (next.has(status)) next.delete(status); else next.add(status); return next; })} onOpen={(task) => setSelectedId(task._id)} onDelete={(task) => { if (confirm(`Bạn chắc chắn muốn xóa nhiệm vụ "${task.title}"?`)) deleteMutation.mutate(task._id); }} onStatus={(task, status) => statusMutation.mutate({ id: task._id, status })} />}
+      {isMobileTaskView && !tasksQuery.isLoading && <MobileTaskList tasks={tasks} collapsed={collapsed} onToggle={(status) => setCollapsed((current) => { const next = new Set(current); if (next.has(status)) next.delete(status); else next.add(status); return next; })} onOpen={(task, opener) => { selectedCardRef.current = opener; setSelectedId(task._id); }} />}
 
       {tasksQuery.isLoading ? (
         <div className="kanban-loading">
@@ -93,13 +94,7 @@ export function TaskBoard() {
                   <TaskCard
                     key={task._id}
                     task={task}
-                    onStatus={(next) => statusMutation.mutate({ id: task._id, status: next })}
-                    onOpen={() => setSelectedId(task._id)}
-                    onDelete={() => {
-                      if (confirm(`Bạn chắc chắn muốn xóa nhiệm vụ "${task.title}"?`)) {
-                        deleteMutation.mutate(task._id);
-                      }
-                    }}
+                    onOpen={(opener) => { selectedCardRef.current = opener; setSelectedId(task._id); }}
                   />
                 ))}
               </div>
