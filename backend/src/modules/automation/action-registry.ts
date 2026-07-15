@@ -25,6 +25,10 @@ export function registerAction(adapter: ActionAdapter): void {
   registry.set(adapter.type, adapter);
 }
 
+export function hasAction(type: ActionType): boolean {
+  return registry.has(type);
+}
+
 export function getAction(type: ActionType): ActionAdapter {
   const adapter = registry.get(type);
   if (!adapter) throw new Error(`Unsupported automation action: ${type}`);

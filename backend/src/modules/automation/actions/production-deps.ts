@@ -3,23 +3,133 @@ import { ObjectId, type Db } from "mongodb";
 import { resolveGithubToken } from "../../github-app/github-token.service.js";
 import type { AutomationActionDependencies } from "./register-actions.js";
 
+type ReviewerSnapshot = { users: string[]; teams: string[] };
 type StringDocument = { _id: string; [key: string]: unknown };
-type Effect = { _id: string; status: "running" | "completed"; result?: Record<string, unknown>; createdAt: string; completedAt?: string };
+type Effect = {
+  _id: string;
+  status: "running" | "completed" | "ambiguous";
+  owner: string;
+  leaseUntil: Date;
+  result?: Record<string, unknown>;
+  error?: string;
+  createdAt: string;
+  completedAt?: string;
+};
+
+type EffectStoreOptions = {
+  owner?: string;
+  leaseMs?: number;
+  now?: () => Date;
+  wait?: (milliseconds: number) => Promise<void>;
+  waitMs?: number;
+  maxWaits?: number;
+};
+
 export class MongoActionEffectStore {
-  constructor(private readonly db: Pick<Db, "collection">) {}
-  async run<T extends Record<string, unknown>>(key: string, operation: () => Promise<T>): Promise<T> {
-    const col = this.db.collection<Effect>("automation_action_effects");
-    const prior = await col.findOne({ _id: key });
-    if (prior?.status === "completed") return prior.result as T;
-    if (prior) throw Object.assign(new Error(`Automation effect is already running: ${key}`), { transient: true });
-    try { await col.insertOne({ _id: key, status: "running", createdAt: new Date().toISOString() }); }
-    catch (error) { if ((error as { code?: number }).code !== 11000) throw error; const winner = await col.findOne({ _id: key }); if (winner?.status === "completed") return winner.result as T; throw Object.assign(new Error(`Automation effect is already running: ${key}`), { transient: true }); }
-    try { const result = await operation(); await col.updateOne({ _id: key, status: "running" }, { $set: { status: "completed", result, completedAt: new Date().toISOString() } }); return result; }
-    catch (error) { await col.deleteOne({ _id: key, status: "running" }); throw error; }
+  private readonly owner: string;
+  private readonly leaseMs: number;
+  private readonly now: () => Date;
+  private readonly wait: (milliseconds: number) => Promise<void>;
+  private readonly waitMs: number;
+  private readonly maxWaits: number;
+
+  constructor(
+    private readonly db: Pick<Db, "collection">,
+    options: EffectStoreOptions = {},
+  ) {
+    this.owner = options.owner ?? randomUUID();
+    this.leaseMs = options.leaseMs ?? 30_000;
+    this.now = options.now ?? (() => new Date());
+    this.wait = options.wait ?? (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)));
+    this.waitMs = options.waitMs ?? 25;
+    this.maxWaits = options.maxWaits ?? 40;
+  }
+
+  async run<T extends Record<string, unknown>>(
+    namespace: string,
+    key: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const effectId = `${namespace}:${key}`;
+    const collection = this.db.collection<Effect>("automation_action_effects");
+    let waits = 0;
+
+    while (true) {
+      const existing = await collection.findOne({ _id: effectId });
+      if (existing?.status === "completed") return existing.result as T;
+      if (existing?.status === "ambiguous") {
+        throw Object.assign(new Error(`Automation effect outcome is ambiguous: ${effectId}`), { code: "ambiguous" });
+      }
+
+      const now = this.now();
+      const leaseUntil = new Date(now.getTime() + this.leaseMs);
+      if (!existing) {
+        try {
+          await collection.insertOne({
+            _id: effectId,
+            status: "running",
+            owner: this.owner,
+            leaseUntil,
+            createdAt: now.toISOString(),
+          });
+          break;
+        } catch (error) {
+          if ((error as { code?: number }).code !== 11000) throw error;
+        }
+      } else if (existing.leaseUntil <= now) {
+        const reclaimed = await collection.updateOne(
+          { _id: effectId, status: "running", owner: existing.owner, leaseUntil: existing.leaseUntil },
+          { $set: { owner: this.owner, leaseUntil } },
+        );
+        if (reclaimed.matchedCount === 1) break;
+      }
+
+      if (waits++ >= this.maxWaits) {
+        throw Object.assign(new Error(`Automation effect is still running: ${effectId}`), { transient: true });
+      }
+      await this.wait(this.waitMs);
+    }
+
+    try {
+      const result = await operation();
+      const completed = await collection.updateOne(
+        { _id: effectId, status: "running", owner: this.owner },
+        { $set: { status: "completed", result, completedAt: this.now().toISOString() } },
+      );
+      if (completed.matchedCount !== 1) {
+        throw Object.assign(new Error(`Lost automation effect lease: ${effectId}`), { code: "ambiguous" });
+      }
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await collection.updateOne(
+        { _id: effectId, status: "running", owner: this.owner },
+        { $set: { status: "ambiguous", error: message } },
+      );
+      await this.db.collection<StringDocument>("automation_operations_alerts").insertOne({
+        _id: randomUUID(),
+        type: "automation.effect_ambiguous",
+        priority: "high",
+        effectId,
+        message: `Automation effect requires manual verification: ${message}`,
+        status: "open",
+        createdAt: this.now().toISOString(),
+      });
+      throw error;
+    }
+  }
+}
+function assertGithubRequest(repository: string, path: string): void {
+  const parts = repository.split("/");
+  const validOwner = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(parts[0] ?? "");
+  const validRepository = /^[A-Za-z0-9_.-]{1,100}$/.test(parts[1] ?? "") && ![".", ".."].includes(parts[1]);
+  if (parts.length !== 2 || !validOwner || !validRepository || !path.startsWith("/")) {
+    throw new Error("Invalid GitHub automation target");
   }
 }
 
 async function github(repository: string, path: string, init: RequestInit = {}) {
+  assertGithubRequest(repository, path);
   const token = await resolveGithubToken(repository); if (!token) throw new Error(`No GitHub credentials for ${repository}`);
   const response = await fetch(`https://api.github.com/repos/${repository}${path}`, { ...init, headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "content-type": "application/json", ...init.headers } });
   if (!response.ok) throw new Error(`GitHub automation HTTP ${response.status}`);
@@ -28,30 +138,64 @@ async function github(repository: string, path: string, init: RequestInit = {}) 
 
 export function createProductionAutomationActionDependencies(db: Db): AutomationActionDependencies {
   const effects = new MongoActionEffectStore(db); const tasks = db.collection<StringDocument>("github_pr_tasks");
-  const run = <T extends Record<string, unknown>>(key: string, fn: () => Promise<T>) => effects.run(key, fn);
+  const run = <T extends Record<string, unknown>>(namespace: string, key: string, fn: () => Promise<T>) => effects.run(namespace, key, fn);
   return {
     tasks: {
-      create: (input, key) => run(key, async () => { const now = new Date().toISOString(), taskId = randomUUID(); await tasks.insertOne({ _id: taskId, code: `AUTO-${taskId.slice(0, 8)}`, title: input.title, description: input.description ?? "", assignee: "", status: "todo", priority: input.priority ?? "medium", labels: input.labels ?? [], projectId: input.projectId, activities: [], comments: [], checklist: [], dependencies: [], watchers: [], createdAt: now, updatedAt: now, automationCreated: true }); return { taskId, version: now }; }),
-      update: (taskId, changes, key) => run(key, async () => { const previous = await tasks.findOne({ _id: taskId }); if (!previous) throw new Error("Task not found"); const version = new Date().toISOString(); const result = await tasks.updateOne({ _id: taskId, updatedAt: previous.updatedAt }, { $set: { ...changes, updatedAt: version } }); if (!result.modifiedCount) throw Object.assign(new Error("Task update conflict"), { code: "conflict" }); const snapshot = Object.fromEntries(Object.keys(changes).map(k => [k, previous[k]])); return { taskId, previous: snapshot, version }; }),
-      assign: (taskId, assignee, key) => run(key, async () => { const previous = await tasks.findOne({ _id: taskId }); if (!previous) throw new Error("Task not found"); const version = new Date().toISOString(); const result = await tasks.updateOne({ _id: taskId, updatedAt: previous.updatedAt }, { $set: { assignee, updatedAt: version } }); if (!result.modifiedCount) throw Object.assign(new Error("Task assign conflict"), { code: "conflict" }); return { taskId, previous: { assignee: previous.assignee }, version }; }),
-      deleteIfVersion: (taskId, version, key) => run(key, async () => ({ deleted: (await tasks.deleteOne({ _id: taskId, updatedAt: version, automationCreated: true })).deletedCount === 1 })).then(r => Boolean(r.deleted)),
-      restoreIfVersion: (taskId, version, snapshot, key) => run(key, async () => ({ restored: (await tasks.updateOne({ _id: taskId, updatedAt: version }, { $set: { ...snapshot, updatedAt: new Date().toISOString() } })).modifiedCount === 1 })).then(r => Boolean(r.restored)),
+      create: (input, key) => run("task.create", key, async () => { const now = new Date().toISOString(), taskId = randomUUID(); await tasks.insertOne({ _id: taskId, code: `AUTO-${taskId.slice(0, 8)}`, title: input.title, description: input.description ?? "", assignee: "", status: "todo", priority: input.priority ?? "medium", labels: input.labels ?? [], projectId: input.projectId, activities: [], comments: [], checklist: [], dependencies: [], watchers: [], createdAt: now, updatedAt: now, automationCreated: true }); return { taskId, version: now }; }),
+      update: (taskId, changes, key) => run("task.update", key, async () => { const previous = await tasks.findOne({ _id: taskId }); if (!previous) throw new Error("Task not found"); const version = new Date().toISOString(); const result = await tasks.updateOne({ _id: taskId, updatedAt: previous.updatedAt }, { $set: { ...changes, updatedAt: version } }); if (!result.modifiedCount) throw Object.assign(new Error("Task update conflict"), { code: "conflict" }); const snapshot = Object.fromEntries(Object.keys(changes).map(k => [k, previous[k]])); return { taskId, previous: snapshot, version }; }),
+      assign: (taskId, assignee, key) => run("task.assign", key, async () => { const previous = await tasks.findOne({ _id: taskId }); if (!previous) throw new Error("Task not found"); const version = new Date().toISOString(); const result = await tasks.updateOne({ _id: taskId, updatedAt: previous.updatedAt }, { $set: { assignee, updatedAt: version } }); if (!result.modifiedCount) throw Object.assign(new Error("Task assign conflict"), { code: "conflict" }); return { taskId, previous: { assignee: previous.assignee }, version }; }),
+      deleteIfVersion: (taskId, version, key) => run("task.delete", key, async () => ({ deleted: (await tasks.deleteOne({ _id: taskId, updatedAt: version, automationCreated: true })).deletedCount === 1 })).then(r => Boolean(r.deleted)),
+      restoreIfVersion: (taskId, version, snapshot, key) => run("task.restore", key, async () => ({ restored: (await tasks.updateOne({ _id: taskId, updatedAt: version }, { $set: { ...snapshot, updatedAt: new Date().toISOString() } })).modifiedCount === 1 })).then(r => Boolean(r.restored)),
     },
     github: {
-      setReviewers: (repository, number, reviewers, key) => run(key, async () => { const pr = await github(repository, `/pulls/${number}`) as { requested_reviewers?: { login: string }[] }; const previousReviewers = (pr.requested_reviewers ?? []).map(x => x.login); if (previousReviewers.length) await github(repository, `/pulls/${number}/requested_reviewers`, { method: "DELETE", body: JSON.stringify({ reviewers: previousReviewers }) }); if (reviewers.length) await github(repository, `/pulls/${number}/requested_reviewers`, { method: "POST", body: JSON.stringify({ reviewers }) }); return { previousReviewers }; }),
-      addComment: (repository, number, body, key) => run(key, async () => { const value = await github(repository, `/issues/${number}/comments`, { method: "POST", body: JSON.stringify({ body }) }) as { id: number }; return { commentId: String(value.id), canDelete: true, canEdit: true }; }),
-      deleteComment: (repository, id, key) => run(key, async () => { await github(repository, `/issues/comments/${id}`, { method: "DELETE" }); return { deleted: true }; }).then(() => undefined),
-      editComment: (repository, id, body, key) => run(key, async () => { await github(repository, `/issues/comments/${id}`, { method: "PATCH", body: JSON.stringify({ body }) }); return { edited: true }; }).then(() => undefined),
-      addCorrection: (repository, number, id, body, key) => run(key, async () => { await github(repository, `/issues/${number}/comments`, { method: "POST", body: JSON.stringify({ body: `${body}\n\nOriginal comment: ${id}` }) }); return { corrected: true }; }).then(() => undefined),
+      setReviewers: (repository, number, reviewers, teams, key) =>
+        run("github.reviewers", key, async () => {
+          const snapshots = db.collection<StringDocument>("automation_github_reviewer_snapshots");
+          const snapshotId = `github.reviewers:${key}`;
+          let stored = await snapshots.findOne({ _id: snapshotId });
+          if (!stored) {
+            const pullRequest = await github(repository, `/pulls/${number}`) as {
+              requested_reviewers?: Array<{ login: string }>;
+              requested_teams?: Array<{ slug: string }>;
+            };
+            const previous = {
+              users: (pullRequest.requested_reviewers ?? []).map(item => item.login),
+              teams: (pullRequest.requested_teams ?? []).map(item => item.slug),
+            };
+            await snapshots.insertOne({ _id: snapshotId, repository, number, previous, createdAt: new Date().toISOString() });
+            stored = { _id: snapshotId, previous };
+          }
+          const previous = stored.previous as ReviewerSnapshot;
+          const removeUsers = previous.users.filter(item => !reviewers.includes(item));
+          const removeTeams = previous.teams.filter(item => !teams.includes(item));
+          const addUsers = reviewers.filter(item => !previous.users.includes(item));
+          const addTeams = teams.filter(item => !previous.teams.includes(item));
+          if (removeUsers.length || removeTeams.length) {
+            await github(repository, `/pulls/${number}/requested_reviewers`, {
+              method: "DELETE",
+              body: JSON.stringify({ reviewers: removeUsers, team_reviewers: removeTeams }),
+            });
+          }
+          if (addUsers.length || addTeams.length) {
+            await github(repository, `/pulls/${number}/requested_reviewers`, {
+              method: "POST",
+              body: JSON.stringify({ reviewers: addUsers, team_reviewers: addTeams }),
+            });
+          }
+          return { previous };
+        }),      addComment: (repository, number, body, key) => run("github.comment.add", key, async () => { const value = await github(repository, `/issues/${number}/comments`, { method: "POST", body: JSON.stringify({ body }) }) as { id: number }; return { commentId: String(value.id), canDelete: true, canEdit: true }; }),
+      deleteComment: (repository, id, key) => run("github.comment.delete", key, async () => { await github(repository, `/issues/comments/${id}`, { method: "DELETE" }); return { deleted: true }; }).then(() => undefined),
+      editComment: (repository, id, body, key) => run("github.comment.edit", key, async () => { await github(repository, `/issues/comments/${id}`, { method: "PATCH", body: JSON.stringify({ body }) }); return { edited: true }; }).then(() => undefined),
+      addCorrection: (repository, number, id, body, key) => run("github.comment.correct", key, async () => { await github(repository, `/issues/${number}/comments`, { method: "POST", body: JSON.stringify({ body: `${body}\n\nOriginal comment: ${id}` }) }); return { corrected: true }; }).then(() => undefined),
     },
     notifications: {
-      send: (channel, message, key) => run(key, async () => { const messageId = randomUUID(); await db.collection<StringDocument>("automation_notifications").insertOne({ _id: messageId, channel, message, kind: "message", createdAt: new Date().toISOString() }); return { messageId }; }),
-      sendCorrection: (originalMessageId, message, key) => run(key, async () => { await db.collection<StringDocument>("automation_notifications").insertOne({ _id: randomUUID(), originalMessageId, message, kind: "correction", createdAt: new Date().toISOString() }); return { corrected: true }; }).then(() => undefined),
+      send: (channel, message, key) => run("notification.send", key, async () => { const messageId = randomUUID(); await db.collection<StringDocument>("automation_notifications").insertOne({ _id: messageId, channel, message, kind: "message", createdAt: new Date().toISOString() }); return { messageId }; }),
+      sendCorrection: (originalMessageId, message, key) => run("notification.correct", key, async () => { await db.collection<StringDocument>("automation_notifications").insertOne({ _id: randomUUID(), originalMessageId, message, kind: "correction", createdAt: new Date().toISOString() }); return { corrected: true }; }).then(() => undefined),
     },
-    jobs: { retry: (jobId, key) => run(key, async () => { const original = await db.collection("github_pr_dead_letter_jobs").findOne({ _id: new ObjectId(jobId) }); await db.collection("github_pr_retry_jobs").insertOne({ ...(original ?? {}), _id: undefined, sourceJobId: jobId, attempts: 0, nextRunAt: new Date(), createdAt: new Date() }); return { jobId }; }) },
+    jobs: { retry: (jobId, key) => run("job.retry", key, async () => { const original = await db.collection("github_pr_dead_letter_jobs").findOne({ _id: new ObjectId(jobId) }); if (!original) throw new Error("Dead-letter job not found"); await db.collection("github_pr_retry_jobs").insertOne({ ...original, _id: undefined, sourceJobId: jobId, attempts: 0, nextRunAt: new Date(), createdAt: new Date() }); return { jobId }; }) },
     alerts: {
-      create: (input, key) => run(key, async () => { const alertId = randomUUID(); await db.collection<StringDocument>("automation_operations_alerts").insertOne({ _id: alertId, ...input, status: "open", createdAt: new Date().toISOString() }); return { alertId }; }),
-      resolve: (alertId, reason, key) => run(key, async () => { await db.collection<StringDocument>("automation_operations_alerts").updateOne({ _id: alertId }, { $set: { status: "resolved", resolution: reason, resolvedAt: new Date().toISOString() } }); return { resolved: true }; }).then(() => undefined),
+      create: (input, key) => run("operations.alert.create", key, async () => { const alertId = randomUUID(); await db.collection<StringDocument>("automation_operations_alerts").insertOne({ _id: alertId, ...input, status: "open", createdAt: new Date().toISOString() }); return { alertId }; }),
+      resolve: (alertId, reason, key) => run("operations.alert.resolve", key, async () => { await db.collection<StringDocument>("automation_operations_alerts").updateOne({ _id: alertId }, { $set: { status: "resolved", resolution: reason, resolvedAt: new Date().toISOString() } }); return { resolved: true }; }).then(() => undefined),
     },
   };
 }

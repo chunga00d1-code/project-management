@@ -1,14 +1,116 @@
 import type { ActionAdapter } from "../action-registry.js";
+
+export interface ReviewerSnapshot {
+  users: string[];
+  teams: string[];
+}
+
 export interface GithubActionPort {
-  setReviewers(repository: string, number: number, reviewers: string[], idempotencyKey: string): Promise<{ previousReviewers: string[] }>;
-  addComment(repository: string, number: number, body: string, idempotencyKey: string): Promise<{ commentId: string; canDelete: boolean; canEdit: boolean }>;
+  setReviewers(
+    repository: string,
+    number: number,
+    reviewers: string[],
+    teams: string[],
+    idempotencyKey: string,
+  ): Promise<{ previous: ReviewerSnapshot }>;
+  addComment(repository: string, number: number, body: string, idempotencyKey: string): Promise<{ commentId: string }>;
   deleteComment(repository: string, commentId: string, idempotencyKey: string): Promise<void>;
   editComment(repository: string, commentId: string, body: string, idempotencyKey: string): Promise<void>;
   addCorrection(repository: string, number: number, originalCommentId: string, body: string, idempotencyKey: string): Promise<void>;
 }
-function check(c: Record<string, unknown>, allowed: string[]) { const u = Object.keys(c).find(k => !allowed.includes(k)); if (u) throw new Error(`Unknown config key: ${u}`); for (const k of allowed) if (c[k] === undefined) throw new Error(`Missing ${k}`); if (typeof c.repository !== "string" || !Number.isInteger(c.number)) throw new Error("Invalid GitHub target"); }
+
+const repositoryPattern = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const loginPattern = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+
+function validateTarget(config: Record<string, unknown>, allowed: string[]): void {
+  const unknown = Object.keys(config).find(key => !allowed.includes(key));
+  if (unknown) throw new Error(`Unknown config key: ${unknown}`);
+  if (typeof config.repository !== "string" || !repositoryPattern.test(config.repository)) throw new Error("Invalid GitHub repository");
+  const repositoryName = config.repository.split("/")[1];
+  if (repositoryName === "." || repositoryName === "..") throw new Error("Invalid GitHub repository");
+  if (!Number.isSafeInteger(config.number) || Number(config.number) <= 0) throw new Error("Invalid pull request number");
+}
+
+function validateNames(value: unknown, name: string): string[] {
+  if (!Array.isArray(value) || value.some(item => typeof item !== "string" || !loginPattern.test(item))) {
+    throw new Error(`Invalid ${name}`);
+  }
+  return value;
+}
+
 export function createGithubActions({ github }: { github: GithubActionPort }): ActionAdapter[] {
-  const reviewers: ActionAdapter = { type: "github.assign_reviewer", sensitive: true, validate(c) { check(c, ["repository", "number", "reviewers"]); if (!Array.isArray(c.reviewers) || c.reviewers.some(v => typeof v !== "string")) throw new Error("Invalid reviewers"); }, async preview(c) { this.validate(c); return { ...c }; }, async execute(c, x) { this.validate(c); const r = await github.setReviewers(String(c.repository), Number(c.number), c.reviewers as string[], x.idempotencyKey); return { ...r, repository: c.repository, number: c.number }; }, async compensate(_c, r, x) { await github.setReviewers(String(r.repository), Number(r.number), r.previousReviewers as string[], x.idempotencyKey); return { restored: true }; } };
-  const comment: ActionAdapter = { type: "github.comment", sensitive: true, validate(c) { check(c, ["repository", "number", "body"]); if (typeof c.body !== "string" || !c.body) throw new Error("Invalid body"); }, async preview(c) { this.validate(c); return { repository: c.repository, number: c.number, body: c.body }; }, async execute(c, x) { this.validate(c); return { ...(await github.addComment(String(c.repository), Number(c.number), String(c.body), x.idempotencyKey)), repository: c.repository, number: c.number }; }, async compensate(_c, r, x) { if (r.canDelete) await github.deleteComment(String(r.repository), String(r.commentId), x.idempotencyKey); else if (r.canEdit) await github.editComment(String(r.repository), String(r.commentId), "[Rolled back by automation]", x.idempotencyKey); else await github.addCorrection(String(r.repository), Number(r.number), String(r.commentId), "Automation rollback: disregard the referenced comment.", x.idempotencyKey); return { corrected: true }; } };
+  const reviewers: ActionAdapter = {
+    type: "github.assign_reviewer",
+    sensitive: true,
+    validate(config) {
+      validateTarget(config, ["repository", "number", "reviewers", "teams"]);
+      validateNames(config.reviewers, "reviewers");
+      if (config.teams !== undefined) validateNames(config.teams, "teams");
+    },
+    async preview(config) {
+      this.validate(config);
+      return { repository: config.repository, number: config.number, reviewers: config.reviewers, teams: config.teams ?? [] };
+    },
+    async execute(config, context) {
+      this.validate(config);
+      const result = await github.setReviewers(
+        String(config.repository),
+        Number(config.number),
+        config.reviewers as string[],
+        (config.teams ?? []) as string[],
+        context.idempotencyKey,
+      );
+      return { ...result, repository: config.repository, number: config.number };
+    },
+    async compensate(_config, result, context) {
+      const previous = result.previous as unknown as ReviewerSnapshot;
+      await github.setReviewers(
+        String(result.repository),
+        Number(result.number),
+        previous.users,
+        previous.teams,
+        context.idempotencyKey,
+      );
+      return { restored: true };
+    },
+  };
+
+  const comment: ActionAdapter = {
+    type: "github.comment",
+    sensitive: true,
+    validate(config) {
+      validateTarget(config, ["repository", "number", "body"]);
+      if (typeof config.body !== "string" || config.body.trim().length === 0 || config.body.length > 65_536) throw new Error("Invalid comment body");
+    },
+    async preview(config) {
+      this.validate(config);
+      return { repository: config.repository, number: config.number, body: config.body };
+    },
+    async execute(config, context) {
+      this.validate(config);
+      return {
+        ...(await github.addComment(String(config.repository), Number(config.number), String(config.body), context.idempotencyKey)),
+        repository: config.repository,
+        number: config.number,
+      };
+    },
+    async compensate(_config, result, context) {
+      const repository = String(result.repository);
+      const commentId = String(result.commentId);
+      try {
+        await github.deleteComment(repository, commentId, context.idempotencyKey);
+        return { deleted: true };
+      } catch {
+        try {
+          await github.editComment(repository, commentId, "[Rolled back by automation]", context.idempotencyKey);
+          return { edited: true };
+        } catch {
+          await github.addCorrection(repository, Number(result.number), commentId, "Automation rollback: disregard the referenced comment.", context.idempotencyKey);
+          return { corrected: true };
+        }
+      }
+    },
+  };
+
   return [reviewers, comment];
 }

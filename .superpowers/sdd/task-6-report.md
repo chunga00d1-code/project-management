@@ -24,3 +24,12 @@ Scoped files:
 - `backend/src/server.ts`
 - `backend/test/automation-actions.test.ts`
 - `backend/test/automation-service.test.ts`
+
+## Follow-up correctness hardening
+
+- Namespaced every durable effect by operation purpose so execute and compensation cannot reuse results.
+- Replaced insert/delete claims with owner leases and `running`, `completed`, and fail-safe `ambiguous` states. Duplicate claimants wait, stale leases are reclaimable, completion writes require a matched owner, and ambiguous outcomes create durable manual-verification alerts without repeating side effects.
+- Added durable GitHub reviewer user/team snapshots before mutation, add/remove diffs, and delete/edit/correction comment rollback fallback based on actual API failures.
+- Added canonical GitHub target validation plus strict IDs, values, channels, messages, labels, priorities, assignees, reviewers, and job IDs.
+- Required a real dead-letter source for `job.retry` and made registration registry-state-driven and reset-compatible.
+- Follow-up focused verification: 13/13 tests passed; lease races, namespace separation, stale recovery, ambiguous completion, reviewer partial failure, fallback, validation, and reset registration are covered.
