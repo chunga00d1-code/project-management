@@ -34,13 +34,13 @@ function automationEvent(value: unknown): AutomationEvent {
   if(Object.keys(body).some(k=>!["eventId","type","source","occurredAt","actor","scope","payload","automation"].includes(k))||typeof body.eventId!=="string"||!identifier(body.eventId)||typeof body.type!=="string"||!triggers.includes(body.type)||typeof body.source!=="string"||!sources.includes(body.source)||Number.isNaN(parsed.getTime())||parsed.toISOString()!==occurredAt||Object.keys(scope).some(k=>!["repository","projectId","team"].includes(k)))throw new ValidationError("Invalid automation event");
   for(const v of Object.values(scope))if(typeof v!=="string"||!v.trim()||v.length>200)throw new ValidationError("Invalid automation event scope");
   if(body.actor!==undefined&&(typeof body.actor!=="string"||body.actor.length>254))throw new ValidationError("Invalid automation event actor");
-  return body as unknown as AutomationEvent;
-}
   if(body.automation!==undefined){
     const provenance=object(body.automation);
     if(Object.keys(provenance).some(k=>!["executionId","sourceRuleId","depth"].includes(k))||typeof provenance.executionId!=="string"||typeof provenance.sourceRuleId!=="string"||!Number.isInteger(provenance.depth)||Number(provenance.depth)<0||Number(provenance.depth)>5)throw new ValidationError("Invalid automation provenance");
     identifier(provenance.executionId); identifier(provenance.sourceRuleId);
   }
+  return body as unknown as AutomationEvent;
+}
 
 
 
