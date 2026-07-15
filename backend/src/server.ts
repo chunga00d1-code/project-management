@@ -36,5 +36,5 @@ const server = app.listen(env.port, () => logger.info("service_started", { port:
 process.on("SIGTERM", async () => { logger.info("service_stopping", { signal: "SIGTERM" }); deadlineScheduler.stop(); retryQueue.stop(); await automationWorker.stop(); server.close(() => Promise.all([stopRealtime(), closeRateLimiter()]).then(() => closeDatabase()).then(() => process.exit(0))); });
 process.on("uncaughtException", (error) => { logger.error("uncaught_exception", { error }); process.exit(1); });
 process.on("unhandledRejection", (error) => { logger.error("unhandled_rejection", { error }); });
-const automationWorker = new AutomationWorker(new AutomationRepository(db), getAction);
+const automationWorker = new AutomationWorker(new AutomationRepository(db), getAction, { onError: error => logger.error("automation_worker_error", { error }) });
 automationWorker.start();

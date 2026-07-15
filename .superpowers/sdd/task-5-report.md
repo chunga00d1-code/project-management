@@ -38,3 +38,12 @@ Implemented and verified. Commit includes only Task 5 production files, focused 
 
 - Error classification currently treats only errors carrying `transient: true` as retryable; validation, permission, and other permanent errors are terminal by default.
 - The worker deliberately starts with the action registry potentially empty. With no executable rules/actions before Task 6 registration this is safe; Task 6 must register adapters before production executions are created.
+
+## Reviewer-finding follow-up
+
+- RED: four added regression tests failed: unregistered adapter lookup rejected the tick; a rejected claim escaped as an unhandled rejection and polling stopped; alert rejection escaped; and a never-resolving alert blocked the tick until timeout.
+- Adapter lookup now occurs inside the durable attempt failure path. An unregistered action is recorded as a permanent failed attempt and transitions execution to `compensating`.
+- Polling catches and reports tick failures through an injected non-throwing `onError` hook and schedules the next bounded timer in `finally`; the server wires this hook to `automation_worker_error` logging.
+- Terminal compensation state and attempt are persisted before alerting. Alert delivery is best-effort and bounded by an injectable timeout, with rejection reported but never allowed to undo durable progress or block shutdown indefinitely.
+- Reviewer GREEN focused: `npm test -- --run backend/test/automation-worker.test.ts` — 14/14 passed with no unhandled errors.
+- Reviewer verification: `npm run build:backend` exited 0; `npm test -- --run` passed 22 files and 130 tests.
