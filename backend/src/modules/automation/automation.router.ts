@@ -28,7 +28,7 @@ function identifier(value: unknown): string {
   const id=String(value??""); if(!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(id)) throw new ValidationError("Invalid identifier"); return id;
 }
 function automationEvent(value: unknown): AutomationEvent {
-  const body=object(value),scope=object(body.scope),payload=object(body.payload);
+  const body=object(value),scope=object(body.scope); object(body.payload);
   const triggers=["pr.opened","pr.updated","pr.merged","pr.closed","pr.review_changed","task.created","task.updated","task.status_changed","task.due_soon","task.overdue","integration.failed","schedule.tick"];
   const sources=["audit","github","scheduler","operations"], occurredAt=typeof body.occurredAt==="string"?body.occurredAt:"", parsed=new Date(occurredAt);
   if(Object.keys(body).some(k=>!["eventId","type","source","occurredAt","actor","scope","payload","automation"].includes(k))||typeof body.eventId!=="string"||!identifier(body.eventId)||typeof body.type!=="string"||!triggers.includes(body.type)||typeof body.source!=="string"||!sources.includes(body.source)||Number.isNaN(parsed.getTime())||parsed.toISOString()!==occurredAt||Object.keys(scope).some(k=>!["repository","projectId","team"].includes(k)))throw new ValidationError("Invalid automation event");
