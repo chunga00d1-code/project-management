@@ -34,8 +34,9 @@ class MemoryStore implements AutomationStore {
 
 afterEach(() => resetActionRegistryForTests());
 const service = (s = new MemoryStore(), sensitive = false) => {
-  registerAction({ type: "notification.send", sensitive, validate() {}, async preview() { return {}; }, async execute() { throw new Error("must not execute"); }, async compensate() { throw new Error("must not compensate"); } });
-  return { s, api: new AutomationService(s, { now: () => new Date("2026-07-15T01:00:00.000Z"), id: (() => { let n = 0; return () => `id-${++n}`; })() }) };
+  const adapter = { type: "notification.send" as const, sensitive, validate: vi.fn(), preview: vi.fn(async () => ({})), execute: vi.fn(async () => ({})), compensate: vi.fn(async () => ({})) };
+  registerAction(adapter);
+  return { s, adapter, api: new AutomationService(s, { now: () => new Date("2026-07-15T01:00:00.000Z"), id: (() => { let n = 0; return () => `id-${++n}`; })() }) };
 };
 
 describe("automation lifecycle", () => {
@@ -55,20 +56,27 @@ describe("automation lifecycle", () => {
     expect(await api.ingest(event({ eventId: "event-2", scope: { projectId: "other" } }))).toEqual([]);
   });
   it("dry runs a draft without event or execution writes", async () => {
-    const { s, api } = service(); const result = await api.dryRun(input(), event());
+    const { s, api, adapter } = service(); const persist = vi.spyOn(s, "persistEvent"); const insert = vi.spyOn(s, "insertExecution");
+    const result = await api.dryRun(input(), event());
     expect(result?.plan.actions).toHaveLength(1); expect(s.events).toEqual([]); expect(s.executions).toEqual([]);
+    expect(persist).not.toHaveBeenCalled(); expect(insert).not.toHaveBeenCalled();
+    expect(adapter.execute).not.toHaveBeenCalled(); expect(adapter.compensate).not.toHaveBeenCalled();
   });
   it("protects against source-rule loops and depth five", async () => {
     const { api } = service(); const d = await api.createDraft(input({ enabled: true }), "admin"); await api.publish(d._id);
     expect(await api.ingest(event({ automation: { executionId: "prior", sourceRuleId: d._id, depth: 1 } }))).toEqual([]);
     expect(await api.ingest(event({ eventId: "event-2", automation: { executionId: "prior", sourceRuleId: "other", depth: 5 } }))).toEqual([]);
   });
-  it("filters atomic transitions by the expected current state and rejects a mismatch", async () => {
-    let filter: unknown;
-    const db = { collection: () => ({ findOneAndUpdate: async (value: unknown) => { filter = value; return null; } }) };
+  it("updates only an execution in the expected state and leaves mismatches unchanged", async () => {
+    let execution = { ...({} as AutomationExecution), _id: "execution-1", status: "running" as ExecutionStatus };
+    const db = { collection: () => ({ findOneAndUpdate: async (filter: { _id: string; status: ExecutionStatus }, update: { $set: { status: ExecutionStatus } }) => {
+      if (execution._id !== filter._id || execution.status !== filter.status) return null;
+      execution = { ...execution, ...update.$set }; return execution;
+    } }) };
     const repository = new AutomationRepository(db as never);
-    expect(await repository.transitionExecution("execution-1", "running", "succeeded")).toBeUndefined();
-    expect(filter).toEqual({ _id: "execution-1", status: "running" });
+    expect((await repository.transitionExecution("execution-1", "running", "succeeded"))?.status).toBe("succeeded");
+    expect(await repository.transitionExecution("execution-1", "running", "cancelled")).toBeUndefined();
+    expect(execution.status).toBe("succeeded");
   });
 });
 
@@ -83,4 +91,41 @@ it("creates the exact automation indexes", async () => {
     ["automation_events", { eventId: 1 }, { unique: true }],
     ["automation_events", { expiresAt: 1 }, { expireAfterSeconds: 0 }],
   ]);
+});
+
+describe("automation Mongo repository publication", () => {
+  it("stores draft fields separately without changing active matching metadata", async () => {
+    let update: unknown;
+    const db = { collection: () => ({ updateOne: async (_filter: unknown, value: unknown) => { update = value; } }) };
+    const repository = new AutomationRepository(db as never);
+    const draft = { ...({} as AutomationRule), _id: "rule-1", name: "Retargeted", enabled: false, priority: 99, trigger: { type: "task.created" as const } };
+    await repository.saveDraft(draft);
+    expect(update).toEqual({ $set: { draft } });
+  });
+
+  it("matches through active metadata and returns the immutable pointed snapshot, not the edited draft", async () => {
+    let ruleFilter: unknown;
+    const published = { ...({} as AutomationRule), _id: "version-1", ruleId: "rule-1", versionId: "version-1", name: "Published", trigger: { type: "task.updated" as const } };
+    const db = { collection: (name: string) => name === "automation_rules" ? {
+      find: (filter: unknown) => { ruleFilter = filter; return { sort: () => ({ toArray: async () => [{ _id: "rule-1", currentVersionId: "version-1", draft: { ...published, name: "Draft", trigger: { type: "task.created" } } }] }) }; },
+    } : { find: () => ({ toArray: async () => [published] }) } };
+    const repository = new AutomationRepository(db as never);
+    const matches = await repository.findMatchingEnabledVersions(event());
+    expect(ruleFilter).toMatchObject({ enabled: true, "trigger.type": "task.updated" });
+    expect(matches).toHaveLength(1); expect(matches[0]).toMatchObject({ _id: "rule-1", name: "Published", trigger: { type: "task.updated" } });
+  });
+  it("rolls back a partially inserted version and rejects a concurrent pointer conflict", async () => {
+    const inserted: unknown[] = []; let transactionCalls = 0;
+    const current = { _id: "rule-1", draft: input({ enabled: true }), activeVersion: 1 };
+    const db = { collection: (name: string) => name === "automation_rules" ? {
+      findOne: async () => current,
+      updateOne: async () => ({ matchedCount: 0 }),
+    } : { insertOne: async (value: unknown) => { inserted.push(value); } } };
+    const transaction = async (work: (session: object) => Promise<unknown>) => {
+      transactionCalls += 1; try { return await work({}); } catch (error) { inserted.length = 0; throw error; }
+    };
+    const repository = new AutomationRepository(db as never, transaction);
+    await expect(repository.publish("rule-1", "2026-07-15T01:00:00.000Z")).rejects.toThrow("concurrent publication");
+    expect(transactionCalls).toBe(1); expect(inserted).toEqual([]);
+  });
 });

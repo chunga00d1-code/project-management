@@ -34,7 +34,7 @@ export class AutomationService {
   async createDraft(value: AutomationRuleInput, createdBy: string, ruleId = this.id()): Promise<AutomationRule> {
     const parsed = parseRuleInput(value); const current = await this.store.findRule(ruleId); const now = this.now().toISOString();
     return this.store.saveDraft({ ...parsed, _id: ruleId, versionId: current?.versionId ?? "", version: current?.version ?? 0,
-      enabled: parsed.enabled ?? current?.enabled ?? false, priority: parsed.priority ?? 0,
+      enabled: parsed.enabled ?? current?.enabled ?? false, priority: parsed.priority ?? current?.priority ?? 0,
       createdBy: current?.createdBy ?? createdBy, createdAt: current?.createdAt ?? now });
   }
   publish(ruleId: string) { return this.store.publish(ruleId, this.now().toISOString()); }
