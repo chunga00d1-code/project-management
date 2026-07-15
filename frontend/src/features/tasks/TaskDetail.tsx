@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { api } from "../../api/client";
 import type { Task } from "../../types";
 import { EditTask } from "./EditTask";
+import { ResponsiveTaskOverlay } from "../../components/ResponsiveTaskOverlay";
 
-export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: () => void; onChange: () => void }) {
+export function TaskDetail({ task, onClose, onChange, onDelete, openerRef }: { task: Task; onClose: () => void; onChange: () => void; onDelete?: () => void; openerRef?: RefObject<HTMLElement | null> }) {
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState("");
   const [itemText, setItemText] = useState("");
@@ -23,10 +24,10 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
   };
 
   return (
-    <dialog open style={{ maxWidth: "750px", width: "95%" }}>
+    <ResponsiveTaskOverlay open label={task.title} onClose={onClose} openerRef={openerRef} className="task-detail-sheet">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
         <div>
-          <h2>{task.title}</h2>
+          {task.code && <span className="badge-code">{task.code}</span>}
           <div className="task-meta" style={{ marginTop: "0.25rem" }}>
             <span className={`badge-priority ${task.priority}`}>{task.priority.toUpperCase()}</span>
             <span className="pill" style={{ textTransform: "capitalize" }}>Trạng thái: {task.status}</span>
@@ -42,6 +43,8 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
           {isEditing ? "Xem chi tiết" : "✏️ Sửa"}
         </button>
       </div>
+
+      {onDelete && <div className="task-detail-danger"><button type="button" className="btn-icon-danger" onClick={onDelete}>Xóa nhiệm vụ</button></div>}
 
       {isEditing ? (
         <EditTask
@@ -213,10 +216,6 @@ export function TaskDetail({ task, onClose, onChange }: { task: Task; onClose: (
           </div>
         </div>
       )}
-
-      <button className="btn-close" onClick={onClose}>
-        Đóng hộp thoại
-      </button>
-    </dialog>
+    </ResponsiveTaskOverlay>
   );
 }

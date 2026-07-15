@@ -115,7 +115,7 @@ export function TaskBoard() {
         <CreateTask onCreated={() => { setShowCreate(false); refresh(); }} onCancel={() => setShowCreate(false)} />
       </ResponsiveTaskOverlay>
 
-      {selected && <TaskDetail task={selected} onClose={() => setSelectedId(null)} onChange={refresh} />}
+      {selected && <TaskDetail task={selected} openerRef={selectedCardRef} onClose={() => setSelectedId(null)} onChange={refresh} onDelete={() => { if (confirm(`Bạn chắc chắn muốn xóa nhiệm vụ "${selected.title}"?`)) deleteMutation.mutate(selected._id); }} />}
     </main>
   );
 }

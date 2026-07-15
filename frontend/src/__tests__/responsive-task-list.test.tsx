@@ -4,6 +4,7 @@ import type { Task } from "../types";
 import { MobileTaskList, taskStatuses } from "../features/tasks/MobileTaskList";
 import { mobileTaskMediaQuery } from "../hooks/useResponsiveViewport";
 import { TaskCard } from "../components/TaskCard";
+import { TaskDetail } from "../features/tasks/TaskDetail";
 
 const task = (id: string, status: string, title: string) => ({
   _id: id,
@@ -17,6 +18,17 @@ const task = (id: string, status: string, title: string) => ({
 } as unknown as Task);
 
 describe("responsive task list foundation", () => {
+  it("renders task detail inside the responsive modal overlay", () => {
+    const html = renderToStaticMarkup(
+      <TaskDetail task={task("detail", "todo", "Detail task")} onClose={() => undefined} onChange={() => undefined} />,
+    );
+
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-modal="true"');
+    expect(html).toContain("task-detail-sheet");
+    expect(html).not.toContain("<dialog");
+  });
+
   it("renders a compact, fully activatable task summary", () => {
     const item = {
       ...task("compact", "todo", "A very long task title that should be clamped by the compact card styles"),
