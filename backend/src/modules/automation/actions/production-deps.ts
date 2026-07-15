@@ -9,6 +9,7 @@ type Effect = {
   _id: string;
   status: "running" | "completed" | "ambiguous";
   owner: string;
+  operationId: string;
   leaseUntil: Date;
   result?: Record<string, unknown>;
   error?: string;
@@ -23,6 +24,9 @@ type EffectStoreOptions = {
   wait?: (milliseconds: number) => Promise<void>;
   waitMs?: number;
   maxWaits?: number;
+  heartbeatMs?: number;
+  setInterval?: (callback: () => void, milliseconds: number) => ReturnType<typeof setInterval>;
+  clearInterval?: (timer: ReturnType<typeof setInterval>) => void;
 };
 
 export class MongoActionEffectStore {
@@ -32,6 +36,9 @@ export class MongoActionEffectStore {
   private readonly wait: (milliseconds: number) => Promise<void>;
   private readonly waitMs: number;
   private readonly maxWaits: number;
+  private readonly heartbeatMs: number;
+  private readonly setHeartbeat: NonNullable<EffectStoreOptions["setInterval"]>;
+  private readonly clearHeartbeat: NonNullable<EffectStoreOptions["clearInterval"]>;
 
   constructor(
     private readonly db: Pick<Db, "collection">,
@@ -43,6 +50,9 @@ export class MongoActionEffectStore {
     this.wait = options.wait ?? (milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)));
     this.waitMs = options.waitMs ?? 25;
     this.maxWaits = options.maxWaits ?? 40;
+    this.heartbeatMs = options.heartbeatMs ?? Math.max(1, Math.floor(this.leaseMs / 3));
+    this.setHeartbeat = options.setInterval ?? ((callback, milliseconds) => setInterval(callback, milliseconds));
+    this.clearHeartbeat = options.clearInterval ?? (timer => clearInterval(timer));
   }
 
   async run<T extends Record<string, unknown>>(
@@ -51,6 +61,7 @@ export class MongoActionEffectStore {
     operation: () => Promise<T>,
   ): Promise<T> {
     const effectId = `${namespace}:${key}`;
+    const operationId = randomUUID();
     const collection = this.db.collection<Effect>("automation_action_effects");
     let waits = 0;
 
@@ -69,6 +80,7 @@ export class MongoActionEffectStore {
             _id: effectId,
             status: "running",
             owner: this.owner,
+            operationId,
             leaseUntil,
             createdAt: now.toISOString(),
           });
@@ -78,8 +90,8 @@ export class MongoActionEffectStore {
         }
       } else if (existing.leaseUntil <= now) {
         const reclaimed = await collection.updateOne(
-          { _id: effectId, status: "running", owner: existing.owner, leaseUntil: existing.leaseUntil },
-          { $set: { owner: this.owner, leaseUntil } },
+          { _id: effectId, status: "running", operationId: existing.operationId, leaseUntil: existing.leaseUntil },
+          { $set: { owner: this.owner, operationId, leaseUntil } },
         );
         if (reclaimed.matchedCount === 1) break;
       }
@@ -90,10 +102,24 @@ export class MongoActionEffectStore {
       await this.wait(this.waitMs);
     }
 
+    let ownershipLost = false;
+    const heartbeat = this.setHeartbeat(() => {
+      const leaseUntil = new Date(this.now().getTime() + this.leaseMs);
+      void collection.updateOne(
+        { _id: effectId, status: "running", operationId },
+        { $set: { leaseUntil } },
+      ).then(result => {
+        if (result.matchedCount !== 1) ownershipLost = true;
+      }).catch(() => {
+        ownershipLost = true;
+      });
+    }, this.heartbeatMs);
+
     try {
       const result = await operation();
+      if (ownershipLost) throw Object.assign(new Error(`Lost automation effect lease: ${effectId}`), { code: "ambiguous" });
       const completed = await collection.updateOne(
-        { _id: effectId, status: "running", owner: this.owner },
+        { _id: effectId, status: "running", operationId },
         { $set: { status: "completed", result, completedAt: this.now().toISOString() } },
       );
       if (completed.matchedCount !== 1) {
@@ -102,20 +128,30 @@ export class MongoActionEffectStore {
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await collection.updateOne(
-        { _id: effectId, status: "running", owner: this.owner },
-        { $set: { status: "ambiguous", error: message } },
-      );
-      await this.db.collection<StringDocument>("automation_operations_alerts").insertOne({
-        _id: randomUUID(),
-        type: "automation.effect_ambiguous",
-        priority: "high",
-        effectId,
-        message: `Automation effect requires manual verification: ${message}`,
-        status: "open",
-        createdAt: this.now().toISOString(),
-      });
+      let ambiguityPersisted = false;
+      try {
+        const ambiguity = await collection.updateOne(
+          { _id: effectId, status: "running", operationId },
+          { $set: { status: "ambiguous", error: message } },
+        );
+        ambiguityPersisted = ambiguity.matchedCount === 1;
+      } catch { /* best-effort; preserve original failure */ }
+      try {
+        await this.db.collection<StringDocument>("automation_operations_alerts").insertOne({
+          _id: randomUUID(),
+          type: "automation.effect_ambiguous",
+          priority: "high",
+          effectId,
+          operationId,
+          ambiguityPersisted,
+          message: `Automation effect requires manual verification: ${message}`,
+          status: "open",
+          createdAt: this.now().toISOString(),
+        });
+      } catch { /* best-effort; preserve original failure */ }
       throw error;
+    } finally {
+      this.clearHeartbeat(heartbeat);
     }
   }
 }
@@ -136,6 +172,40 @@ async function github(repository: string, path: string, init: RequestInit = {}) 
   return response.status === 204 ? undefined : response.json();
 }
 
+async function readReviewerState(repository: string, number: number): Promise<ReviewerSnapshot> {
+  const pullRequest = await github(repository, `/pulls/${number}`) as {
+    requested_reviewers?: Array<{ login: string }>;
+    requested_teams?: Array<{ slug: string }>;
+  };
+  return {
+    users: (pullRequest.requested_reviewers ?? []).map(item => item.login),
+    teams: (pullRequest.requested_teams ?? []).map(item => item.slug),
+  };
+}
+
+async function mutateReviewerDiff(
+  repository: string,
+  number: number,
+  current: ReviewerSnapshot,
+  desired: ReviewerSnapshot,
+): Promise<void> {
+  const removeUsers = current.users.filter(item => !desired.users.includes(item));
+  const removeTeams = current.teams.filter(item => !desired.teams.includes(item));
+  const addUsers = desired.users.filter(item => !current.users.includes(item));
+  const addTeams = desired.teams.filter(item => !current.teams.includes(item));
+  if (removeUsers.length || removeTeams.length) {
+    await github(repository, `/pulls/${number}/requested_reviewers`, {
+      method: "DELETE",
+      body: JSON.stringify({ reviewers: removeUsers, team_reviewers: removeTeams }),
+    });
+  }
+  if (addUsers.length || addTeams.length) {
+    await github(repository, `/pulls/${number}/requested_reviewers`, {
+      method: "POST",
+      body: JSON.stringify({ reviewers: addUsers, team_reviewers: addTeams }),
+    });
+  }
+}
 export function createProductionAutomationActionDependencies(db: Db): AutomationActionDependencies {
   const effects = new MongoActionEffectStore(db); const tasks = db.collection<StringDocument>("github_pr_tasks");
   const run = <T extends Record<string, unknown>>(namespace: string, key: string, fn: () => Promise<T>) => effects.run(namespace, key, fn);
@@ -148,42 +218,26 @@ export function createProductionAutomationActionDependencies(db: Db): Automation
       restoreIfVersion: (taskId, version, snapshot, key) => run("task.restore", key, async () => ({ restored: (await tasks.updateOne({ _id: taskId, updatedAt: version }, { $set: { ...snapshot, updatedAt: new Date().toISOString() } })).modifiedCount === 1 })).then(r => Boolean(r.restored)),
     },
     github: {
-      setReviewers: (repository, number, reviewers, teams, key) =>
-        run("github.reviewers", key, async () => {
+      applyReviewers: (repository, number, reviewers, teams, key) =>
+        run("github.reviewers.apply", key, async () => {
           const snapshots = db.collection<StringDocument>("automation_github_reviewer_snapshots");
-          const snapshotId = `github.reviewers:${key}`;
-          let stored = await snapshots.findOne({ _id: snapshotId });
-          if (!stored) {
-            const pullRequest = await github(repository, `/pulls/${number}`) as {
-              requested_reviewers?: Array<{ login: string }>;
-              requested_teams?: Array<{ slug: string }>;
-            };
-            const previous = {
-              users: (pullRequest.requested_reviewers ?? []).map(item => item.login),
-              teams: (pullRequest.requested_teams ?? []).map(item => item.slug),
-            };
-            await snapshots.insertOne({ _id: snapshotId, repository, number, previous, createdAt: new Date().toISOString() });
-            stored = { _id: snapshotId, previous };
-          }
-          const previous = stored.previous as ReviewerSnapshot;
-          const removeUsers = previous.users.filter(item => !reviewers.includes(item));
-          const removeTeams = previous.teams.filter(item => !teams.includes(item));
-          const addUsers = reviewers.filter(item => !previous.users.includes(item));
-          const addTeams = teams.filter(item => !previous.teams.includes(item));
-          if (removeUsers.length || removeTeams.length) {
-            await github(repository, `/pulls/${number}/requested_reviewers`, {
-              method: "DELETE",
-              body: JSON.stringify({ reviewers: removeUsers, team_reviewers: removeTeams }),
-            });
-          }
-          if (addUsers.length || addTeams.length) {
-            await github(repository, `/pulls/${number}/requested_reviewers`, {
-              method: "POST",
-              body: JSON.stringify({ reviewers: addUsers, team_reviewers: addTeams }),
-            });
-          }
-          return { previous };
-        }),      addComment: (repository, number, body, key) => run("github.comment.add", key, async () => { const value = await github(repository, `/issues/${number}/comments`, { method: "POST", body: JSON.stringify({ body }) }) as { id: number }; return { commentId: String(value.id), canDelete: true, canEdit: true }; }),
+          const snapshotId = `github.reviewers.apply:${key}`;
+          const current = await readReviewerState(repository, number);
+          await snapshots.updateOne(
+            { _id: snapshotId },
+            { $setOnInsert: { repository, number, previous: current, createdAt: new Date().toISOString() } },
+            { upsert: true },
+          );
+          await mutateReviewerDiff(repository, number, current, { users: reviewers, teams });
+          return { previous: current };
+        }),
+      restoreReviewers: (repository, number, previous, key) =>
+        run("github.reviewers.restore", key, async () => {
+          const current = await readReviewerState(repository, number);
+          await mutateReviewerDiff(repository, number, current, previous);
+          return { restored: true };
+        }).then(() => undefined),
+      addComment: (repository, number, body, key) => run("github.comment.add", key, async () => { const value = await github(repository, `/issues/${number}/comments`, { method: "POST", body: JSON.stringify({ body }) }) as { id: number }; return { commentId: String(value.id), canDelete: true, canEdit: true }; }),
       deleteComment: (repository, id, key) => run("github.comment.delete", key, async () => { await github(repository, `/issues/comments/${id}`, { method: "DELETE" }); return { deleted: true }; }).then(() => undefined),
       editComment: (repository, id, body, key) => run("github.comment.edit", key, async () => { await github(repository, `/issues/comments/${id}`, { method: "PATCH", body: JSON.stringify({ body }) }); return { edited: true }; }).then(() => undefined),
       addCorrection: (repository, number, id, body, key) => run("github.comment.correct", key, async () => { await github(repository, `/issues/${number}/comments`, { method: "POST", body: JSON.stringify({ body: `${body}\n\nOriginal comment: ${id}` }) }); return { corrected: true }; }).then(() => undefined),

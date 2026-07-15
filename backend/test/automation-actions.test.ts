@@ -46,10 +46,10 @@ describe("automation action adapters", () => {
   });
 
   it("restores reviewers and uses GitHub comment correction fallback", async () => {
-    const github = { setReviewers: vi.fn(async () => ({ previous: { users: ["old"], teams: ["old-team"] } })), addComment: vi.fn(async () => ({ commentId: "c", canDelete: false, canEdit: false })), deleteComment: vi.fn().mockRejectedValue(new Error("delete denied")), editComment: vi.fn().mockRejectedValue(new Error("edit denied")), addCorrection: vi.fn() };
+    const github = { applyReviewers: vi.fn(async () => ({ previous: { users: ["old"], teams: ["old-team"] } })), restoreReviewers: vi.fn(async () => undefined), addComment: vi.fn(async () => ({ commentId: "c", canDelete: false, canEdit: false })), deleteComment: vi.fn().mockRejectedValue(new Error("delete denied")), editComment: vi.fn().mockRejectedValue(new Error("edit denied")), addCorrection: vi.fn() };
     const [reviewer, comment] = createGithubActions({ github });
     await reviewer.compensate({ repository: "o/r", number: 1, reviewers: ["new"] }, await reviewer.execute({ repository: "o/r", number: 1, reviewers: ["new"] }, context), context);
-    expect(github.setReviewers).toHaveBeenLastCalledWith("o/r", 1, ["old"], ["old-team"], "stable");
+    expect(github.restoreReviewers).toHaveBeenCalledWith("o/r", 1, { users: ["old"], teams: ["old-team"] }, "stable");
     const result = await comment.execute({ repository: "o/r", number: 1, body: "hello" }, context);
     await comment.compensate({ repository: "o/r", number: 1, body: "hello" }, result, context);
     expect(github.addCorrection).toHaveBeenCalledWith("o/r", 1, "c", expect.stringMatching(/rollback/i), "stable");
@@ -69,7 +69,7 @@ describe("automation action adapters", () => {
   });
 
   it("registers all eight types once and server registers before worker start", () => {
-    const deps = { tasks: { create: vi.fn(), update: vi.fn(), assign: vi.fn(), deleteIfVersion: vi.fn(), restoreIfVersion: vi.fn() }, github: { setReviewers: vi.fn(), addComment: vi.fn(), deleteComment: vi.fn().mockRejectedValue(new Error("delete denied")), editComment: vi.fn().mockRejectedValue(new Error("edit denied")), addCorrection: vi.fn() }, notifications: { send: vi.fn(), sendCorrection: vi.fn() }, jobs: { retry: vi.fn() }, alerts };
+    const deps = { tasks: { create: vi.fn(), update: vi.fn(), assign: vi.fn(), deleteIfVersion: vi.fn(), restoreIfVersion: vi.fn() }, github: { applyReviewers: vi.fn(), restoreReviewers: vi.fn(), addComment: vi.fn(), deleteComment: vi.fn().mockRejectedValue(new Error("delete denied")), editComment: vi.fn().mockRejectedValue(new Error("edit denied")), addCorrection: vi.fn() }, notifications: { send: vi.fn(), sendCorrection: vi.fn() }, jobs: { retry: vi.fn() }, alerts };
     registerAutomationActions(deps); registerAutomationActions(deps);
     for (const type of ["task.create", "task.update", "task.assign", "github.assign_reviewer", "github.comment", "notification.send", "job.retry", "operations.alert"] as const) expect(getAction(type).type).toBe(type);
     const source = readFileSync(new URL("../src/server.ts", import.meta.url), "utf8");
@@ -147,7 +147,7 @@ it("reclaims stale running effects and marks a lost completion ambiguous", async
 it("rejects invalid values for every adapter and keeps previews side-effect free", async () => {
   const integrations = {
     tasks: { create: vi.fn(), update: vi.fn(), assign: vi.fn(), deleteIfVersion: vi.fn(), restoreIfVersion: vi.fn() },
-    github: { setReviewers: vi.fn(), addComment: vi.fn(), deleteComment: vi.fn(), editComment: vi.fn(), addCorrection: vi.fn() },
+    github: { applyReviewers: vi.fn(), restoreReviewers: vi.fn(), addComment: vi.fn(), deleteComment: vi.fn(), editComment: vi.fn(), addCorrection: vi.fn() },
     notifications: { send: vi.fn(), sendCorrection: vi.fn() },
     jobs: { retry: vi.fn() },
     alerts: { create: vi.fn(), resolve: vi.fn() },
@@ -173,7 +173,7 @@ it("registers again after the test registry is reset", () => {
   process.env.NODE_ENV = "test";
   const dependencies = {
     tasks: { create: vi.fn(), update: vi.fn(), assign: vi.fn(), deleteIfVersion: vi.fn(), restoreIfVersion: vi.fn() },
-    github: { setReviewers: vi.fn(), addComment: vi.fn(), deleteComment: vi.fn(), editComment: vi.fn(), addCorrection: vi.fn() },
+    github: { applyReviewers: vi.fn(), restoreReviewers: vi.fn(), addComment: vi.fn(), deleteComment: vi.fn(), editComment: vi.fn(), addCorrection: vi.fn() },
     notifications: { send: vi.fn(), sendCorrection: vi.fn() }, jobs: { retry: vi.fn() }, alerts: { create: vi.fn(), resolve: vi.fn() },
   };
   resetActionRegistryForTests();
@@ -191,7 +191,7 @@ it("persists the reviewer snapshot before a partial GitHub failure and does not 
     return {
       findOne: async ({ _id }: { _id: unknown }) => documents.get(String(_id)),
       insertOne: async (value: Record<string, unknown>) => { if (documents.has(String(value._id))) throw Object.assign(new Error("duplicate"), { code: 11000 }); documents.set(String(value._id), value); return { insertedId: value._id }; },
-      updateOne: async ({ _id }: { _id: unknown }, update: { $set: Record<string, unknown> }) => { const key = String(_id); const current = documents.get(key); if (!current) return { matchedCount: 0, modifiedCount: 0 }; documents.set(key, { ...current, ...update.$set }); return { matchedCount: 1, modifiedCount: 1 }; },
+      updateOne: async ({ _id }: { _id: unknown }, update: { $set: Record<string, unknown> }) => { const key = String(_id); const current = documents.get(key); if (!current && update.$setOnInsert) { documents.set(key, { _id: key, ...update.$setOnInsert }); return { matchedCount: 0, modifiedCount: 0, upsertedCount: 1 }; } if (!current) return { matchedCount: 0, modifiedCount: 0 }; documents.set(key, { ...current, ...update.$set }); return { matchedCount: 1, modifiedCount: 1 }; },
     };
   };
   const fetchMock = vi.fn()
@@ -199,11 +199,95 @@ it("persists the reviewer snapshot before a partial GitHub failure and does not 
     .mockResolvedValueOnce(new Response("denied", { status: 403 }));
   vi.stubGlobal("fetch", fetchMock);
   const dependencies = createProductionAutomationActionDependencies({ collection } as never);
-  await expect(dependencies.github.setReviewers("owner/repo", 1, ["new"], [], "same")).rejects.toThrow(/403/);
-  const snapshot = databases.get("automation_github_reviewer_snapshots")?.get("github.reviewers:same");
+  await expect(dependencies.github.applyReviewers("owner/repo", 1, ["new"], [], "same")).rejects.toThrow(/403/);
+  const snapshot = databases.get("automation_github_reviewer_snapshots")?.get("github.reviewers.apply:same");
   expect(snapshot?.previous).toEqual({ users: ["old"], teams: ["team"] });
-  await expect(dependencies.github.setReviewers("owner/repo", 1, ["new"], [], "same")).rejects.toMatchObject({ code: "ambiguous" });
+  await expect(dependencies.github.applyReviewers("owner/repo", 1, ["new"], [], "same")).rejects.toMatchObject({ code: "ambiguous" });
   expect(fetchMock).toHaveBeenCalledTimes(2);
   expect(databases.get("automation_operations_alerts")?.size).toBe(1);
+  vi.unstubAllGlobals();
+});
+
+
+
+
+it("heartbeats a live operation so a second claimant cannot reclaim it after the original lease", async () => {
+  let now = new Date("2026-01-01T00:00:00Z");
+  let document: Record<string, unknown> | undefined;
+  const matches = (filter: Record<string, unknown>) => Boolean(document) && Object.entries(filter).every(([key, value]) => {
+    const actual = document?.[key];
+    return actual instanceof Date && value instanceof Date ? actual.getTime() === value.getTime() : actual === value;
+  });
+  const collection = {
+    findOne: async () => document,
+    insertOne: async (value: Record<string, unknown>) => { if (document) throw Object.assign(new Error("duplicate"), { code: 11000 }); document = value; },
+    updateOne: async (filter: Record<string, unknown>, update: { $set: Record<string, unknown> }) => { if (!matches(filter)) return { matchedCount: 0 }; document = { ...document, ...update.$set }; return { matchedCount: 1 }; },
+  };
+  const heartbeats: Array<() => void> = [];
+  const clearHeartbeat = vi.fn();
+  const first = new MongoActionEffectStore({ collection: () => collection } as never, {
+    owner: "first", leaseMs: 100, now: () => now,
+    setInterval: callback => { heartbeats.push(callback); return 1 as never; }, clearInterval: clearHeartbeat,
+  });
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  const active = first.run("task.create", "live", async () => { await pending; return { ok: true }; });
+  await vi.waitFor(() => expect(heartbeats).toHaveLength(1));
+  now = new Date(now.getTime() + 90);
+  heartbeats[0]();
+  await Promise.resolve();
+  now = new Date(now.getTime() + 20);
+  const secondOperation = vi.fn(async () => ({ duplicate: true }));
+  const second = new MongoActionEffectStore({ collection: () => collection } as never, { owner: "second", leaseMs: 100, now: () => now, maxWaits: 0, wait: async () => undefined });
+  await expect(second.run("task.create", "live", secondOperation)).rejects.toMatchObject({ transient: true });
+  expect(secondOperation).not.toHaveBeenCalled();
+  release();
+  await expect(active).resolves.toEqual({ ok: true });
+  expect(clearHeartbeat).toHaveBeenCalledOnce();
+});
+
+it("rejects an empty task update", () => {
+  const tasks = { create: vi.fn(), update: vi.fn(), assign: vi.fn(), deleteIfVersion: vi.fn(), restoreIfVersion: vi.fn() };
+  const [_, update] = createTaskActions({ tasks, alerts });
+  expect(() => update.validate({ taskId: "task", changes: {} })).toThrow(/empty/i);
+});
+
+it("applies then restores GitHub users and teams with distinct durable namespaces", async () => {
+  const databases = new Map<string, Map<string, Record<string, unknown>>>();
+  const collection = (name: string) => {
+    const documents = databases.get(name) ?? new Map<string, Record<string, unknown>>();
+    databases.set(name, documents);
+    const matches = (document: Record<string, unknown>, filter: Record<string, unknown>) => Object.entries(filter).every(([key, value]) => {
+      const actual = document[key];
+      return actual instanceof Date && value instanceof Date ? actual.getTime() === value.getTime() : actual === value;
+    });
+    return {
+      findOne: async (filter: Record<string, unknown>) => [...documents.values()].find(document => matches(document, filter)),
+      insertOne: async (value: Record<string, unknown>) => { const key = String(value._id); if (documents.has(key)) throw Object.assign(new Error("duplicate"), { code: 11000 }); documents.set(key, value); return { insertedId: key }; },
+      updateOne: async (filter: Record<string, unknown>, update: { $set?: Record<string, unknown>; $setOnInsert?: Record<string, unknown> }, options?: { upsert?: boolean }) => {
+        const found = [...documents.entries()].find(([, document]) => matches(document, filter));
+        if (found) { documents.set(found[0], { ...found[1], ...(update.$set ?? {}) }); return { matchedCount: 1, modifiedCount: 1 }; }
+        if (options?.upsert) { const key = String(filter._id); documents.set(key, { ...filter, ...(update.$setOnInsert ?? {}), ...(update.$set ?? {}) }); return { matchedCount: 0, upsertedCount: 1 }; }
+        return { matchedCount: 0, modifiedCount: 0 };
+      },
+    };
+  };
+  const response = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response({ requested_reviewers: [{ login: "old" }], requested_teams: [{ slug: "old-team" }] }))
+    .mockResolvedValueOnce(response({})).mockResolvedValueOnce(response({}))
+    .mockResolvedValueOnce(response({ requested_reviewers: [{ login: "new" }], requested_teams: [{ slug: "new-team" }] }))
+    .mockResolvedValueOnce(response({})).mockResolvedValueOnce(response({}));
+  vi.stubGlobal("fetch", fetchMock);
+  const dependencies = createProductionAutomationActionDependencies({ collection } as never);
+  const applied = await dependencies.github.applyReviewers("owner/repo", 7, ["new"], ["new-team"], "execute-key");
+  await dependencies.github.restoreReviewers("owner/repo", 7, applied.previous, "compensate-key");
+  expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ reviewers: ["old"], team_reviewers: ["old-team"] });
+  expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body))).toEqual({ reviewers: ["new"], team_reviewers: ["new-team"] });
+  expect(JSON.parse(String(fetchMock.mock.calls[4][1]?.body))).toEqual({ reviewers: ["new"], team_reviewers: ["new-team"] });
+  expect(JSON.parse(String(fetchMock.mock.calls[5][1]?.body))).toEqual({ reviewers: ["old"], team_reviewers: ["old-team"] });
+  const effects = databases.get("automation_action_effects");
+  expect(effects?.get("github.reviewers.apply:execute-key")?.status).toBe("completed");
+  expect(effects?.get("github.reviewers.restore:compensate-key")?.status).toBe("completed");
   vi.unstubAllGlobals();
 });

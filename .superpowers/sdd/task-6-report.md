@@ -33,3 +33,11 @@ Scoped files:
 - Added canonical GitHub target validation plus strict IDs, values, channels, messages, labels, priorities, assignees, reviewers, and job IDs.
 - Required a real dead-letter source for `job.retry` and made registration registry-state-driven and reset-compatible.
 - Follow-up focused verification: 13/13 tests passed; lease races, namespace separation, stale recovery, ambiguous completion, reviewer partial failure, fallback, validation, and reset registration are covered.
+
+## Reviewer restore and lease heartbeat follow-up
+
+- Split reviewer effects into `github.reviewers.apply` and `github.reviewers.restore`. Apply captures users and teams and diffs the current state to the desired state; restore fetches current state and diffs back to the persisted snapshot.
+- Added operation identity and an injected heartbeat to renew live effect leases. Completion and ambiguity transitions use operation-identity compare-and-set filters, heartbeat cleanup is guaranteed, and ambiguity persistence/alerts are best-effort so they cannot mask the original error.
+- Added filter-honoring concurrency coverage proving an operation that outlives its original lease cannot be reclaimed while its heartbeat is live.
+- Added a production execute/compensate GitHub test proving both users and teams are restored and the apply/restore effect namespaces are distinct.
+- Empty task update changes are rejected.

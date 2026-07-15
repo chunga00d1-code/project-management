@@ -6,13 +6,19 @@ export interface ReviewerSnapshot {
 }
 
 export interface GithubActionPort {
-  setReviewers(
+  applyReviewers(
     repository: string,
     number: number,
     reviewers: string[],
     teams: string[],
     idempotencyKey: string,
   ): Promise<{ previous: ReviewerSnapshot }>;
+  restoreReviewers(
+    repository: string,
+    number: number,
+    previous: ReviewerSnapshot,
+    idempotencyKey: string,
+  ): Promise<void>;
   addComment(repository: string, number: number, body: string, idempotencyKey: string): Promise<{ commentId: string }>;
   deleteComment(repository: string, commentId: string, idempotencyKey: string): Promise<void>;
   editComment(repository: string, commentId: string, body: string, idempotencyKey: string): Promise<void>;
@@ -53,7 +59,7 @@ export function createGithubActions({ github }: { github: GithubActionPort }): A
     },
     async execute(config, context) {
       this.validate(config);
-      const result = await github.setReviewers(
+      const result = await github.applyReviewers(
         String(config.repository),
         Number(config.number),
         config.reviewers as string[],
@@ -64,11 +70,10 @@ export function createGithubActions({ github }: { github: GithubActionPort }): A
     },
     async compensate(_config, result, context) {
       const previous = result.previous as unknown as ReviewerSnapshot;
-      await github.setReviewers(
+      await github.restoreReviewers(
         String(result.repository),
         Number(result.number),
-        previous.users,
-        previous.teams,
+        previous,
         context.idempotencyKey,
       );
       return { restored: true };
