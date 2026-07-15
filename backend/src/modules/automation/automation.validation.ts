@@ -61,12 +61,32 @@ export function parseRuleInput(value: unknown): AutomationRuleInput {
   if (!Array.isArray(input.actions) || input.actions.length === 0) fail("Invalid automation actions");
   if (input.actions.length > 20) fail("Too many automation actions");
   const parsedActions = input.actions.map(ruleAction);
+  if (new Set(parsedActions.map((action) => action.id)).size !== parsedActions.length) fail("Duplicate automation action id");
   const parsedConditions = condition(input.conditions, { value: 0 });
+  const description = text(input.description, "description", 2000);
+  if (input.enabled !== undefined && typeof input.enabled !== "boolean") fail("Invalid enabled");
+  if (input.priority !== undefined && (typeof input.priority !== "number" || !Number.isFinite(input.priority) || !Number.isInteger(input.priority))) fail("Invalid priority");
+  const timestamp = (field: "effectiveFrom" | "effectiveUntil") => {
+    const value = input[field];
+    if (value === undefined) return undefined;
+    if (typeof value !== "string") fail(`Invalid ${field}`);
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString() !== value) fail(`Invalid ${field}`);
+    return value;
+  };
+  const effectiveFrom = timestamp("effectiveFrom");
+  const effectiveUntil = timestamp("effectiveUntil");
+  if (effectiveFrom && effectiveUntil && Date.parse(effectiveUntil) < Date.parse(effectiveFrom)) fail("effectiveUntil must not be before effectiveFrom");
   return {
     name,
     scope: scopeType === "system" ? { type: "system" } : { type: scopeType, id: (scope.id as string).trim() },
     trigger: { type: trigger.type as TriggerType },
     conditions: parsedConditions,
     actions: parsedActions,
+    ...(description !== undefined ? { description } : {}),
+    ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+    ...(input.priority !== undefined ? { priority: input.priority } : {}),
+    ...(effectiveFrom !== undefined ? { effectiveFrom } : {}),
+    ...(effectiveUntil !== undefined ? { effectiveUntil } : {}),
   };
 }

@@ -114,4 +114,29 @@ describe("automation rule validation", () => {
     }
     expect(parseRuleInput(rule({ actions: [action({ retry: { maxAttempts: 8, baseDelayMs: 3600000 } })] }))).toBeDefined();
   });
+  it("preserves and validates optional rule fields", () => {
+    const parsed = parseRuleInput(rule({
+      description: "Escalate urgent work",
+      enabled: true,
+      priority: 10,
+      effectiveFrom: "2026-07-15T00:00:00.000Z",
+      effectiveUntil: "2026-07-16T00:00:00.000Z",
+    }));
+    expect(parsed).toMatchObject({
+      description: "Escalate urgent work",
+      enabled: true,
+      priority: 10,
+      effectiveFrom: "2026-07-15T00:00:00.000Z",
+      effectiveUntil: "2026-07-16T00:00:00.000Z",
+    });
+    expect(() => parseRuleInput(rule({ description: "x".repeat(2001) }))).toThrow("Invalid description");
+    expect(() => parseRuleInput(rule({ enabled: "yes" }))).toThrow("Invalid enabled");
+    expect(() => parseRuleInput(rule({ priority: 1.5 }))).toThrow("Invalid priority");
+    expect(() => parseRuleInput(rule({ effectiveFrom: "tomorrow" }))).toThrow("Invalid effectiveFrom");
+    expect(() => parseRuleInput(rule({ effectiveFrom: "2026-07-16T00:00:00.000Z", effectiveUntil: "2026-07-15T00:00:00.000Z" }))).toThrow("effectiveUntil must not be before effectiveFrom");
+  });
+
+  it("rejects duplicate action ids", () => {
+    expect(() => parseRuleInput(rule({ actions: [action({ id: "same" }), action({ id: "same" })] }))).toThrow("Duplicate automation action id");
+  });
 });
