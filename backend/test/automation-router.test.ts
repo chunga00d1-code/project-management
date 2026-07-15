@@ -93,10 +93,16 @@ describe("automation router", () => {
     const {response}=await request(api,path,{method,body:method==="GET"?undefined:body}); expect(response.status).toBe(400);
   });
   it("rejects malformed dry-run event before delegation", async () => {
+
     const dryRun=vi.fn(),api=service({dryRun});
     const {response}=await request(api,"/api/automation/rules/rule-1/dry-run",{method:"POST",body:JSON.stringify({payload:{}})});
     expect(response.status).toBe(400); expect(dryRun).not.toHaveBeenCalled();
   });
+  it("maps enabling an unpublished rule to 404", async () => {
+    const {response}=await request(service({setRuleEnabled:vi.fn().mockResolvedValue(undefined)}),"/api/automation/rules/unpublished/enabled",{method:"PATCH",body:JSON.stringify({enabled:true})});
+    expect(response.status).toBe(404);
+  });
+
 
 
   it("delegates publication to repository transactional semantics", async () => {
@@ -128,7 +134,7 @@ describe("automation router", () => {
     const findOneAndUpdate=vi.fn().mockResolvedValue(execution("running")),collection=vi.fn().mockReturnValue({findOneAndUpdate});
     const adapter=new MongoAutomationApiService({collection} as never);
     await adapter.transition("exec-1",["waiting_approval"],"running",{approval:{inputFingerprint:"fingerprint-1"}},false,"fingerprint-1");
-    expect(findOneAndUpdate).toHaveBeenCalledWith(expect.objectContaining({_id:"exec-1",status:{$in:["waiting_approval"]},"plan.inputFingerprint":"fingerprint-1"}),expect.any(Object),{returnDocument:"after"});
+    expect(findOneAndUpdate).toHaveBeenCalledWith(expect.objectContaining({_id:"exec-1",status:"waiting_approval","plan.inputFingerprint":"fingerprint-1"}),expect.any(Object),{returnDocument:"after"});
   });
 
   it("mounts the production router", () => {
