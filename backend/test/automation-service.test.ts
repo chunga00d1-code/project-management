@@ -89,6 +89,7 @@ it("creates the exact automation indexes", async () => {
     ["automation_executions", { eventId: 1, ruleVersionId: 1 }, { unique: true }],
     ["automation_executions", { status: 1, "lease.until": 1, updatedAt: 1 }, undefined],
     ["automation_events", { eventId: 1 }, { unique: true }],
+    ["automation_action_effects", { _id: 1 }, { unique: true }],
     ["automation_events", { expiresAt: 1 }, { expireAfterSeconds: 0 }],
   ]);
 });

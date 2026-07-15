@@ -1,0 +1,14 @@
+import type { ActionAdapter } from "../action-registry.js";
+export interface GithubActionPort {
+  setReviewers(repository: string, number: number, reviewers: string[], idempotencyKey: string): Promise<{ previousReviewers: string[] }>;
+  addComment(repository: string, number: number, body: string, idempotencyKey: string): Promise<{ commentId: string; canDelete: boolean; canEdit: boolean }>;
+  deleteComment(repository: string, commentId: string, idempotencyKey: string): Promise<void>;
+  editComment(repository: string, commentId: string, body: string, idempotencyKey: string): Promise<void>;
+  addCorrection(repository: string, number: number, originalCommentId: string, body: string, idempotencyKey: string): Promise<void>;
+}
+function check(c: Record<string, unknown>, allowed: string[]) { const u = Object.keys(c).find(k => !allowed.includes(k)); if (u) throw new Error(`Unknown config key: ${u}`); for (const k of allowed) if (c[k] === undefined) throw new Error(`Missing ${k}`); if (typeof c.repository !== "string" || !Number.isInteger(c.number)) throw new Error("Invalid GitHub target"); }
+export function createGithubActions({ github }: { github: GithubActionPort }): ActionAdapter[] {
+  const reviewers: ActionAdapter = { type: "github.assign_reviewer", sensitive: true, validate(c) { check(c, ["repository", "number", "reviewers"]); if (!Array.isArray(c.reviewers) || c.reviewers.some(v => typeof v !== "string")) throw new Error("Invalid reviewers"); }, async preview(c) { this.validate(c); return { ...c }; }, async execute(c, x) { this.validate(c); const r = await github.setReviewers(String(c.repository), Number(c.number), c.reviewers as string[], x.idempotencyKey); return { ...r, repository: c.repository, number: c.number }; }, async compensate(_c, r, x) { await github.setReviewers(String(r.repository), Number(r.number), r.previousReviewers as string[], x.idempotencyKey); return { restored: true }; } };
+  const comment: ActionAdapter = { type: "github.comment", sensitive: true, validate(c) { check(c, ["repository", "number", "body"]); if (typeof c.body !== "string" || !c.body) throw new Error("Invalid body"); }, async preview(c) { this.validate(c); return { repository: c.repository, number: c.number, body: c.body }; }, async execute(c, x) { this.validate(c); return { ...(await github.addComment(String(c.repository), Number(c.number), String(c.body), x.idempotencyKey)), repository: c.repository, number: c.number }; }, async compensate(_c, r, x) { if (r.canDelete) await github.deleteComment(String(r.repository), String(r.commentId), x.idempotencyKey); else if (r.canEdit) await github.editComment(String(r.repository), String(r.commentId), "[Rolled back by automation]", x.idempotencyKey); else await github.addCorrection(String(r.repository), Number(r.number), String(r.commentId), "Automation rollback: disregard the referenced comment.", x.idempotencyKey); return { corrected: true }; } };
+  return [reviewers, comment];
+}

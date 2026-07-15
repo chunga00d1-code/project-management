@@ -19,6 +19,8 @@ import { automationRouter } from "./modules/automation/automation.router.js";
 import { getAction } from "./modules/automation/action-registry.js";
 import { AutomationRepository } from "./modules/automation/automation.repository.js";
 import { AutomationWorker } from "./modules/automation/automation.worker.js";
+import { registerAutomationActions } from "./modules/automation/actions/register-actions.js";
+import { createProductionAutomationActionDependencies } from "./modules/automation/actions/production-deps.js";
 import { realtimeRouter } from "./modules/realtime/realtime.router.js";
 import { startRealtime, stopRealtime } from "./modules/realtime/realtime.service.js";
 validateEnv(); const db = await database(); await ensureIndexes(); await connectRateLimiter(); await startRealtime(); await new UserService().bootstrap(env.superadminEmail, env.superadminPassword);
@@ -37,4 +39,5 @@ process.on("SIGTERM", async () => { logger.info("service_stopping", { signal: "S
 process.on("uncaughtException", (error) => { logger.error("uncaught_exception", { error }); process.exit(1); });
 process.on("unhandledRejection", (error) => { logger.error("unhandled_rejection", { error }); });
 const automationWorker = new AutomationWorker(new AutomationRepository(db), getAction, { onError: error => logger.error("automation_worker_error", { error }) });
+registerAutomationActions(createProductionAutomationActionDependencies(db));
 automationWorker.start();

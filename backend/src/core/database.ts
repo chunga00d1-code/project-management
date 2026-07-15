@@ -32,6 +32,7 @@ export async function ensureIndexes(providedDb?: Db) {
     db.collection("automation_executions").createIndex({ eventId: 1, ruleVersionId: 1 }, { unique: true }),
     db.collection("automation_executions").createIndex({ status: 1, "lease.until": 1, updatedAt: 1 }),
     db.collection("automation_events").createIndex({ eventId: 1 }, { unique: true }),
+    db.collection("automation_action_effects").createIndex({ _id: 1 }, { unique: true }),
     db.collection("automation_events").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
   ]);
 }
