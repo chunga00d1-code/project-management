@@ -2,7 +2,7 @@ import express, { type RequestHandler } from "express";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAutomationRouter, type AutomationApiService } from "../src/modules/automation/automation.router.js";
+import { createAutomationRouter, MongoAutomationApiService, type AutomationApiService } from "../src/modules/automation/automation.router.js";
 
 const servers: ReturnType<typeof createServer>[] = [];
 afterEach(async () => { await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => server.close(() => resolve())))); });
@@ -56,7 +56,7 @@ describe("automation router", () => {
     const current=execution(),updated={...current,status:"running"} as never,transition=vi.fn().mockResolvedValue(updated),audit=vi.fn(),api=service({findExecution:vi.fn().mockResolvedValue(current),transition});
     const {response}=await request(api,"/api/automation/executions/exec-1/approve",{method:"POST",body:JSON.stringify({inputFingerprint:"fingerprint-1"})},"superadmin",audit);
     expect(response.status).toBe(200);
-    expect(transition).toHaveBeenCalledWith("exec-1",["waiting_approval"],"running",{approval:{decidedBy:"actor@example.com",decidedAt:expect.any(String),decision:"approved",inputFingerprint:"fingerprint-1"}},undefined);
+    expect(transition).toHaveBeenCalledWith("exec-1",["waiting_approval"],"running",{approval:{decidedBy:"actor@example.com",decidedAt:expect.any(String),decision:"approved",inputFingerprint:"fingerprint-1"}},undefined,"fingerprint-1");
     expect(audit).toHaveBeenCalledWith({actor:"actor@example.com",action:"automation.execution.approve",target:"exec-1",metadata:{from:"waiting_approval",to:"running"}});
   });
 
@@ -65,7 +65,7 @@ describe("automation router", () => {
   ])("maps invalid %s state to 409", async (route,next,expected) => {
     const transition=vi.fn().mockResolvedValue(undefined),api=service({findExecution:vi.fn().mockResolvedValue(execution("succeeded")),transition});
     const {response}=await request(api,`/api/automation/executions/exec-1/${route}`,{method:"POST",body:"{}"}); expect(response.status).toBe(409);
-    expect(transition).toHaveBeenCalledWith("exec-1",expected,next,route==="reject"?expect.objectContaining({approval:expect.any(Object)}):undefined,route==="cancel"?true:undefined);
+    expect(transition).toHaveBeenCalledWith("exec-1",expected,next,route==="reject"?expect.objectContaining({approval:expect.any(Object)}):undefined,route==="cancel"?true:undefined,undefined);
   });
 
   it.each(["page=0","page=1.5","limit=0","limit=101","status=unsafe"])("bounds pagination/filter: %s", async query => {
@@ -81,6 +81,54 @@ describe("automation router", () => {
     const router=createAutomationRouter({service:service(),audit:vi.fn(),authenticate:auth()});
     const routes=(router as never as {stack:{route?:{path:string;methods:Record<string,boolean>}}[]}).stack.flatMap(x=>x.route?[`${Object.keys(x.route.methods)[0].toUpperCase()} ${x.route.path}`]:[]);
     expect(routes).toEqual(expect.arrayContaining(["GET /rules","POST /rules","POST /rules/:id/publish","PATCH /rules/:id/enabled","POST /rules/:id/dry-run","GET /executions","GET /executions/:id","POST /executions/:id/approve","POST /executions/:id/reject","POST /executions/:id/cancel","POST /executions/:id/retry-compensation"]));
+  });
+
+  it.each([
+    "/api/automation/rules/%20/publish", "/api/automation/rules/bad$id/enabled", "/api/automation/rules/bad$id/dry-run",
+    "/api/automation/executions/%20", "/api/automation/executions/bad$id/approve", "/api/automation/executions/bad$id/reject",
+    "/api/automation/executions/bad$id/cancel", "/api/automation/executions/bad$id/retry-compensation"
+  ])("rejects unsafe path id with 400: %s", async path => {
+    const api=service(), method=path.endsWith("%20")?"GET":path.includes("enabled")?"PATCH":"POST";
+    const body=path.includes("enabled")?JSON.stringify({enabled:true}):path.includes("approve")?JSON.stringify({inputFingerprint:"fingerprint-1"}):"{}";
+    const {response}=await request(api,path,{method,body:method==="GET"?undefined:body}); expect(response.status).toBe(400);
+  });
+  it("rejects malformed dry-run event before delegation", async () => {
+    const dryRun=vi.fn(),api=service({dryRun});
+    const {response}=await request(api,"/api/automation/rules/rule-1/dry-run",{method:"POST",body:JSON.stringify({payload:{}})});
+    expect(response.status).toBe(400); expect(dryRun).not.toHaveBeenCalled();
+  });
+
+
+  it("delegates publication to repository transactional semantics", async () => {
+    const published={_id:"rule-1",version:2} as never,publish=vi.fn().mockResolvedValue(published),repository={publish,setEnabled:vi.fn()} as never;
+    const adapter=new MongoAutomationApiService({} as never,{repository,automationService:{dryRun:vi.fn()} as never});
+    await expect(adapter.publishRule("rule-1")).resolves.toBe(published); expect(publish).toHaveBeenCalledWith("rule-1",expect.any(String));
+  });
+
+  it("maps repository publication missing rule to undefined", async () => {
+    const repository={publish:vi.fn().mockRejectedValue(new Error("Rule not found")),setEnabled:vi.fn()} as never;
+    const adapter=new MongoAutomationApiService({} as never,{repository,automationService:{dryRun:vi.fn()} as never});
+    await expect(adapter.publishRule("missing")).resolves.toBeUndefined();
+  });
+
+  it("delegates enabled state without mutating the draft", async () => {
+    const setEnabled=vi.fn().mockResolvedValue(undefined),repository={publish:vi.fn(),setEnabled} as never;
+    const adapter=new MongoAutomationApiService({} as never,{repository,automationService:{dryRun:vi.fn()} as never});
+    await expect(adapter.setRuleEnabled("unpublished",true)).resolves.toBeUndefined(); expect(setEnabled).toHaveBeenCalledWith("unpublished",true);
+  });
+
+  it("delegates dry-run evaluation and planning to AutomationService", async () => {
+    const event={eventId:"event-1",type:"issue.opened",occurredAt:"2026-01-01T00:00:00.000Z",scope:{repository:"org/repo"},payload:{}};
+    const result={rule:{_id:"rule-1"},plan:{inputFingerprint:"fingerprint-1"}},dryRun=vi.fn().mockResolvedValue(result),repository={publish:vi.fn(),setEnabled:vi.fn()} as never;
+    const adapter=new MongoAutomationApiService({} as never,{repository,automationService:{dryRun} as never});
+    await expect(adapter.dryRun("rule-1",event)).resolves.toBe(result); expect(dryRun).toHaveBeenCalledWith("rule-1",event);
+  });
+
+  it("atomically filters approval by id, waiting state, and approved fingerprint", async () => {
+    const findOneAndUpdate=vi.fn().mockResolvedValue(execution("running")),collection=vi.fn().mockReturnValue({findOneAndUpdate});
+    const adapter=new MongoAutomationApiService({collection} as never);
+    await adapter.transition("exec-1",["waiting_approval"],"running",{approval:{inputFingerprint:"fingerprint-1"}},false,"fingerprint-1");
+    expect(findOneAndUpdate).toHaveBeenCalledWith(expect.objectContaining({_id:"exec-1",status:{$in:["waiting_approval"]},"plan.inputFingerprint":"fingerprint-1"}),expect.any(Object),{returnDocument:"after"});
   });
 
   it("mounts the production router", () => {
