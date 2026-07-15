@@ -127,4 +127,30 @@ describe("automation execution planner", () => {
     const reverse = await planExecution(rule(["task.update", "task.create"]), event());
     expect(reverse.inputFingerprint).not.toBe(forward.inputFingerprint);
   });
+
+  it("distinguishes undefined object properties and array entries", async () => {
+    registerAction(adapter("notification.send"));
+    const emptyObject = await planExecution(rule(["notification.send"], [{}]), event());
+    const undefinedProperty = await planExecution(rule(["notification.send"], [{ x: undefined }]), event());
+    const emptyArray = await planExecution(rule(["notification.send"], [{ values: [] }]), event());
+    const undefinedEntry = await planExecution(rule(["notification.send"], [{ values: [undefined] }]), event());
+    expect(undefinedProperty.inputFingerprint).not.toBe(emptyObject.inputFingerprint);
+    expect(undefinedEntry.inputFingerprint).not.toBe(emptyArray.inputFingerprint);
+  });
+
+  it.each([["function", () => undefined], ["symbol", Symbol("unsupported")], ["bigint", 1n]])(
+    "rejects unsupported %s fingerprint values",
+    async (_, unsupported) => {
+      registerAction(adapter("notification.send"));
+      await expect(planExecution(rule(["notification.send"], [{ unsupported }]), event()))
+        .rejects.toThrow("Unsupported value in automation fingerprint");
+    },
+  );
+
+  it("uses deterministic code-unit key ordering for Unicode keys", async () => {
+    registerAction(adapter("notification.send"));
+    const first = await planExecution(rule(["notification.send"], [{ "é": 1, "😀": { "Ω": 2, "A": 3 }, "a": 4 }]), event());
+    const reordered = await planExecution(rule(["notification.send"], [{ "a": 4, "😀": { "A": 3, "Ω": 2 }, "é": 1 }]), event());
+    expect(reordered.inputFingerprint).toBe(first.inputFingerprint);
+  });
 });
