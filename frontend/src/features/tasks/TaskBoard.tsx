@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { Task } from "../../types";
@@ -8,12 +8,18 @@ import { TaskDashboard } from "./TaskDashboard";
 import { TaskDetail } from "./TaskDetail";
 import { TaskFilters, type TaskQuery } from "./TaskFilters";
 import { ServerDashboard } from "./ServerDashboard";
+import { MobileTaskList } from "./MobileTaskList";
+import { useResponsiveViewport } from "../../hooks/useResponsiveViewport";
+import { ResponsiveTaskOverlay } from "../../components/ResponsiveTaskOverlay";
 type Page = { items: Task[]; total: number; page: number; pages: number };
 type StatusChange = { id: string; status: string };
 const statuses = ["todo", "in_review", "needs_changes", "ready", "done", "cancelled"];
 const labels: Record<string, string> = { todo: "📋 Cần làm", in_review: "🔍 Đang review", needs_changes: "⚠️ Cần sửa đổi", ready: "✅ Sẵn sàng", done: "🎉 Hoàn thành", cancelled: "🚫 Đã hủy" };
 export function TaskBoard() {
   const client = useQueryClient();
+  const { isMobileTaskView } = useResponsiveViewport();
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const createButtonRef = useRef<HTMLButtonElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [query, setQuery] = useState<TaskQuery>({ q: "", priority: "", project: "" });
@@ -38,7 +44,7 @@ export function TaskBoard() {
           <h1>Bảng nhiệm vụ</h1>
           <p className="page-subtitle">Theo dõi tiến độ và cập nhật công việc theo thời gian thực.</p>
         </div>
-        <button className="btn-primary" style={{ width: "auto" }} onClick={() => setShowCreate(true)}>
+        <button ref={createButtonRef} className="btn-primary" style={{ width: "auto" }} onClick={() => setShowCreate(true)}>
           ➕ Tạo nhiệm vụ mới
         </button>
       </header>
@@ -48,10 +54,12 @@ export function TaskBoard() {
         <ServerDashboard />
       </div>
 
-      <TaskFilters onChange={changeQuery} />
+      <TaskFilters value={query} mobile={isMobileTaskView} onChange={changeQuery} />
 
       {error && <div className="error-message" role="alert">{error instanceof Error ? error.message : "Không thể cập nhật dữ liệu"}</div>}
       {statusMutation.isPending && <div className="toast-message">Đang đồng bộ thay đổi…</div>}
+
+      {isMobileTaskView && !tasksQuery.isLoading && <MobileTaskList tasks={tasks} collapsed={collapsed} onToggle={(status) => setCollapsed((current) => { const next = new Set(current); if (next.has(status)) next.delete(status); else next.add(status); return next; })} onOpen={(task) => setSelectedId(task._id)} onDelete={(task) => { if (confirm(`Bạn chắc chắn muốn xóa nhiệm vụ "${task.title}"?`)) deleteMutation.mutate(task._id); }} onStatus={(task, status) => statusMutation.mutate({ id: task._id, status })} />}
 
       {tasksQuery.isLoading ? (
         <div className="kanban-loading">
@@ -64,7 +72,7 @@ export function TaskBoard() {
           ))}
         </div>
       ) : (
-        <section className="kanban-grid">
+        !isMobileTaskView ? <section className="kanban-grid">
           {statuses.map((status) => {
             const column = tasks.filter((task) => task.status === status);
             return (
@@ -97,7 +105,7 @@ export function TaskBoard() {
               </div>
             );
           })}
-        </section>
+        </section> : null
       )}
 
       <div className="pagination-bar">
@@ -108,20 +116,9 @@ export function TaskBoard() {
         </div>
       </div>
 
-      {showCreate && (
-        <dialog open style={{ maxWidth: "600px", width: "95%", zIndex: 1100 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-            <h2>➕ Tạo Nhiệm Vụ Mới</h2>
-          </div>
-          <CreateTask
-            onCreated={() => {
-              setShowCreate(false);
-              refresh();
-            }}
-            onCancel={() => setShowCreate(false)}
-          />
-        </dialog>
-      )}
+      <ResponsiveTaskOverlay open={showCreate} label="Tạo Nhiệm Vụ Mới" openerRef={createButtonRef} onClose={() => setShowCreate(false)}>
+        <CreateTask onCreated={() => { setShowCreate(false); refresh(); }} onCancel={() => setShowCreate(false)} />
+      </ResponsiveTaskOverlay>
 
       {selected && <TaskDetail task={selected} onClose={() => setSelectedId(null)} onChange={refresh} />}
     </main>

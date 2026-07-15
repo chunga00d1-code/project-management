@@ -2,12 +2,12 @@ import type { Task } from "../types";
 
 const deadline = (task: Task) => task.dueAt || (task.dueDate ? `${task.dueDate}T23:59:59` : undefined);
 
-export function TaskCard({ task, onStatus, onOpen, onDelete }: { task: Task; onStatus: (status: string) => void; onOpen: () => void; onDelete: () => void }) {
+export function TaskCard({ task, onStatus, onOpen, onDelete, draggable = true }: { task: Task; onStatus: (status: string) => void; onOpen: () => void; onDelete: () => void; draggable?: boolean }) {
   const checklist = task.checklist || [];
   const completed = checklist.filter((item) => item.done).length;
   const due = deadline(task);
   const overdue = Boolean(due && new Date(due).getTime() < Date.now() && !["done", "cancelled"].includes(task.status));
-  return <article className={`task-card priority-${task.priority}`} draggable onDragStart={(event) => event.dataTransfer.setData("taskId", task._id)}>
+  return <article className={`task-card priority-${task.priority}`} draggable={draggable} onDragStart={draggable ? (event) => event.dataTransfer.setData("taskId", task._id) : undefined}>
     <div className="task-card-top">{task.code && <span className="badge-code">{task.code}</span>}<span className={`badge-priority ${task.priority}`}>{task.priority}</span>{due && <span className={`due-badge ${overdue ? "overdue" : ""}`}>{overdue ? "Quá hạn · " : "Hạn · "}{new Date(due).toLocaleString("vi-VN")}</span>}</div>
     {task.prSyncStatus === "mismatched" && <div className="mismatch-badge" title={(task.prMismatchReasons || []).join(", ")}>⚠️ PR không khớp: {(task.prMismatchReasons || []).join(", ")}</div>}
     <button className="task-title" onClick={onOpen}>{task.title}</button>
