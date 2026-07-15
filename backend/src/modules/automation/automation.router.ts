@@ -36,6 +36,12 @@ function automationEvent(value: unknown): AutomationEvent {
   if(body.actor!==undefined&&(typeof body.actor!=="string"||body.actor.length>254))throw new ValidationError("Invalid automation event actor");
   return body as unknown as AutomationEvent;
 }
+  if(body.automation!==undefined){
+    const provenance=object(body.automation);
+    if(Object.keys(provenance).some(k=>!["executionId","sourceRuleId","depth"].includes(k))||typeof provenance.executionId!=="string"||typeof provenance.sourceRuleId!=="string"||!Number.isInteger(provenance.depth)||Number(provenance.depth)<0||Number(provenance.depth)>5)throw new ValidationError("Invalid automation provenance");
+    identifier(provenance.executionId); identifier(provenance.sourceRuleId);
+  }
+
 
 
 class Missing extends Error {} class Conflict extends Error {}
@@ -65,6 +71,6 @@ export class MongoAutomationApiService implements AutomationApiService {
   async dryRun(id:string,input:AutomationEvent){return this.automationService.dryRun(id,input);}
   async listExecutions(p:Paging){const f:Filter<AutomationExecution>={...(p.status?{status:p.status as ExecutionStatus}:{}),...(p.ruleId?{ruleId:p.ruleId}:{})},c=this.db.collection<AutomationExecution>("automation_executions"),[items,total]=await Promise.all([c.find(f).sort({createdAt:-1}).skip((p.page-1)*p.limit).limit(p.limit).toArray(),c.countDocuments(f)]);return{items,total};}
   async findExecution(id:string){return(await this.db.collection<AutomationExecution>("automation_executions").findOne({_id:id}))??undefined;}
-  async transition(id:string,expected:ExecutionStatus[],next:ExecutionStatus,extra={},noAttempts=false,expectedFingerprint?:string){const f:Filter<AutomationExecution>={_id:id,status:expectedFingerprint?expected[0]:{$in:expected},...(noAttempts?{attempts:{$size:0}}:{}),...(expectedFingerprint?{"plan.inputFingerprint":expectedFingerprint}:{})};return(await this.db.collection<AutomationExecution>("automation_executions").findOneAndUpdate(f,{$set:{status:next,updatedAt:new Date().toISOString(),...extra}},{returnDocument:"after"}))??undefined;}
+  async transition(id:string,expected:ExecutionStatus[],next:ExecutionStatus,extra={},noAttempts=false,expectedFingerprint?:string){const hasFingerprint=expectedFingerprint!==undefined,f:Filter<AutomationExecution>={_id:id,status:hasFingerprint?expected[0]:{$in:expected},...(noAttempts?{attempts:{$size:0}}:{}),...(hasFingerprint?{"plan.inputFingerprint":expectedFingerprint}:{})};return(await this.db.collection<AutomationExecution>("automation_executions").findOneAndUpdate(f,{$set:{status:next,updatedAt:new Date().toISOString(),...extra}},{returnDocument:"after"}))??undefined;}
 }
 const production=new Proxy({} as AutomationApiService,{get:(_t,k)=>async(...args:unknown[])=>{const x=new MongoAutomationApiService(await database());return(x[k as keyof MongoAutomationApiService] as (...a:unknown[])=>unknown).apply(x,args);}}); export const automationRouter=createAutomationRouter({service:production,audit});

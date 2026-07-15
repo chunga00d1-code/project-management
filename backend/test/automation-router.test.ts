@@ -124,7 +124,7 @@ describe("automation router", () => {
   });
 
   it("delegates dry-run evaluation and planning to AutomationService", async () => {
-    const event={eventId:"event-1",type:"issue.opened",occurredAt:"2026-01-01T00:00:00.000Z",scope:{repository:"org/repo"},payload:{}};
+    const event={eventId:"event-1",type:"pr.opened",source:"github",occurredAt:"2026-01-01T00:00:00.000Z",scope:{repository:"org/repo"},payload:{}} as const;
     const result={rule:{_id:"rule-1"},plan:{inputFingerprint:"fingerprint-1"}},dryRun=vi.fn().mockResolvedValue(result),repository={publish:vi.fn(),setEnabled:vi.fn()} as never;
     const adapter=new MongoAutomationApiService({} as never,{repository,automationService:{dryRun} as never});
     await expect(adapter.dryRun("rule-1",event)).resolves.toBe(result); expect(dryRun).toHaveBeenCalledWith("rule-1",event);
@@ -135,6 +135,28 @@ describe("automation router", () => {
     const adapter=new MongoAutomationApiService({collection} as never);
     await adapter.transition("exec-1",["waiting_approval"],"running",{approval:{inputFingerprint:"fingerprint-1"}},false,"fingerprint-1");
     expect(findOneAndUpdate).toHaveBeenCalledWith(expect.objectContaining({_id:"exec-1",status:"waiting_approval","plan.inputFingerprint":"fingerprint-1"}),expect.any(Object),{returnDocument:"after"});
+  });
+
+  it("keeps an explicitly empty fingerprint in the atomic Mongo predicate", async () => {
+    const findOneAndUpdate=vi.fn().mockResolvedValue(undefined),collection=vi.fn().mockReturnValue({findOneAndUpdate});
+    const adapter=new MongoAutomationApiService({collection} as never);
+    await adapter.transition("exec-1",["waiting_approval"],"running",{},false,"");
+    expect(findOneAndUpdate).toHaveBeenCalledWith(expect.objectContaining({status:"waiting_approval","plan.inputFingerprint":""}),expect.any(Object),{returnDocument:"after"});
+  });
+
+  it.each([
+    ["string","bad"], ["extra",{executionId:"exec-1",sourceRuleId:"rule-1",depth:1,extra:true}],
+    ["bad id",{executionId:"bad$id",sourceRuleId:"rule-1",depth:1}], ["fractional depth",{executionId:"exec-1",sourceRuleId:"rule-1",depth:1.5}],
+    ["negative depth",{executionId:"exec-1",sourceRuleId:"rule-1",depth:-1}], ["excessive depth",{executionId:"exec-1",sourceRuleId:"rule-1",depth:6}]
+  ])("rejects invalid automation provenance: %s", async (_label,automation) => {
+    const dryRun=vi.fn(),api=service({dryRun}),event={eventId:"event-1",type:"pr.opened",source:"github",occurredAt:"2026-01-01T00:00:00.000Z",scope:{repository:"org/repo"},payload:{},automation};
+    const {response}=await request(api,"/api/automation/rules/rule-1/dry-run",{method:"POST",body:JSON.stringify(event)});
+    expect(response.status).toBe(400); expect(dryRun).not.toHaveBeenCalled();
+  });
+
+  it("accepts valid automation provenance", async () => {
+    const dryRun=vi.fn().mockResolvedValue({plan:{}}),api=service({dryRun}),event={eventId:"event-1",type:"pr.opened",source:"github",occurredAt:"2026-01-01T00:00:00.000Z",scope:{repository:"org/repo"},payload:{},automation:{executionId:"exec-1",sourceRuleId:"rule-1",depth:5}};
+    const {response}=await request(api,"/api/automation/rules/rule-1/dry-run",{method:"POST",body:JSON.stringify(event)}); expect(response.status).toBe(200);
   });
 
   it("mounts the production router", () => {
