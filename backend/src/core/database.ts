@@ -10,8 +10,8 @@ export async function database(): Promise<Db> {
   return client.db();
 }
 export async function closeDatabase() { await client?.close(); }
-export async function ensureIndexes() {
-  const db = await database();
+export async function ensureIndexes(providedDb?: Db) {
+  const db = providedDb ?? await database();
   await Promise.all([
     db.collection("users").createIndex({ email: 1 }, { unique: true }),
     db.collection("auth_sessions").createIndex({ tokenHash: 1 }, { unique: true }),
@@ -27,5 +27,11 @@ export async function ensureIndexes() {
     db.collection("github_pr_retry_jobs").createIndex({ nextRunAt: 1, lockedUntil: 1 }),
     db.collection("github_pr_dead_letter_jobs").createIndex({ failedAt: -1 }),
     db.collection("audit_logs").createIndex({ at: -1 }),
+    db.collection("automation_rule_versions").createIndex({ ruleId: 1, version: 1 }, { unique: true }),
+    db.collection("automation_rules").createIndex({ enabled: 1, "trigger.type": 1, priority: -1 }),
+    db.collection("automation_executions").createIndex({ eventId: 1, ruleVersionId: 1 }, { unique: true }),
+    db.collection("automation_executions").createIndex({ status: 1, "lease.until": 1, updatedAt: 1 }),
+    db.collection("automation_events").createIndex({ eventId: 1 }, { unique: true }),
+    db.collection("automation_events").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
   ]);
 }
