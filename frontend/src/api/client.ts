@@ -1,5 +1,5 @@
 ﻿const token = () => localStorage.getItem("token");
-async function request(url: string, options: RequestInit) { return fetch(`/api${url}`, { ...options, credentials: "same-origin", headers: { "content-type": "application/json", ...(token() ? { authorization: `Bearer ${token()}` } : {}), ...options.headers } }); }
+async function request(url: string, options: RequestInit) { return fetch(`/api${url}`, { ...options, credentials: "include", headers: { "content-type": "application/json", ...(token() ? { authorization: `Bearer ${token()}` } : {}), ...options.headers } }); }
 export async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
   let response = await request(url, options);
   if (response.status === 401 && !["/auth/login", "/auth/refresh", "/auth/logout"].includes(url)) {

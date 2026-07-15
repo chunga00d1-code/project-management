@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Login } from "./features/auth/Login";
 import { TaskBoard } from "./features/tasks/TaskBoard";
 import { Settings } from "./features/auth/Settings";
@@ -20,13 +20,33 @@ const navItems: { id: Page; label: string; icon: string; permission?: "admin" | 
   { id: "users", label: "Thành viên", icon: "♙", permission: "users" },
   { id: "operations", label: "Vận hành", icon: "⌁", permission: "admin" },
 ];
+type SessionUser = { id: string; email: string; role: string };
 export function App() {
   const [loggedIn, setLoggedIn] = useState(Boolean(localStorage.getItem("token")));
+  const [checkingSession, setCheckingSession] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
-  const user = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })() as { email?: string; role?: string };
   const [page, setPage] = useState<Page>("overview");
+  useEffect(() => {
+    let cancelled = false;
+    api<SessionUser>("/auth/me")
+      .then((me) => {
+        if (cancelled) return;
+        localStorage.setItem("user", JSON.stringify(me));
+        setLoggedIn(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setLoggedIn(false);
+      })
+      .finally(() => { if (!cancelled) setCheckingSession(false); });
+    return () => { cancelled = true; };
+  }, []);
+  const user = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })() as { email?: string; role?: string };
   const admin = hasPermission(user.role, "settings");
   const signOut = async () => { try { await api("/auth/logout", { method: "POST" }); } finally { localStorage.removeItem("token"); localStorage.removeItem("user"); setLoggedIn(false); } };
+  if (checkingSession) return <div className="app-loading">Đang tải phiên đăng nhập...</div>;
   if (!loggedIn) return showLogin
     ? <Login onLogin={() => setLoggedIn(true)} />
     : <LocalizedLandingPage onLogin={() => setShowLogin(true)} />;
