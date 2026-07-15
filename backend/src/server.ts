@@ -15,6 +15,7 @@ import { retryQueue } from "./modules/jobs/retry-queue.service.js";
 import { operationsRouter } from "./modules/jobs/operations.router.js";
 import { notifyReview } from "./modules/notifications/notification.service.js";
 import { deadlineScheduler } from "./modules/notifications/deadline-scheduler.service.js";
+import { automationRouter } from "./modules/automation/automation.router.js";
 import { realtimeRouter } from "./modules/realtime/realtime.router.js";
 import { startRealtime, stopRealtime } from "./modules/realtime/realtime.service.js";
 validateEnv(); await database(); await ensureIndexes(); await connectRateLimiter(); await startRealtime(); await new UserService().bootstrap(env.superadminEmail, env.superadminPassword);
@@ -23,7 +24,7 @@ app.use("/webhooks", async (req, res, next) => { try { const result = await cons
 app.use("/webhooks", express.raw({ type: "application/json", limit: "2mb" })); app.use(express.json());
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 app.get("/ready", async (_req, res) => { try { await (await database()).command({ ping: 1 }); res.json({ status: "ready" }); } catch (error) { logger.warn("readiness_check_failed", { error }); res.status(503).json({ status: "not_ready" }); } });
-app.use("/api/auth", authRouter); app.use("/api/realtime", realtimeRouter); app.use("/api/tasks", taskRouter); app.use("/api/settings", settingsRouter); app.use("/api/projects", projectRouter); app.use("/api/operations", operationsRouter); app.use("/webhooks", webhookRouter);
+app.use("/api/auth", authRouter); app.use("/api/realtime", realtimeRouter); app.use("/api/tasks", taskRouter); app.use("/api/settings", settingsRouter); app.use("/api/projects", projectRouter); app.use("/api/operations", operationsRouter); app.use("/api/automation", automationRouter); app.use("/webhooks", webhookRouter);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../frontend/dist");
 app.use(errorLogger); app.use(express.static(root)); app.get("/{*splat}", (_req, res) => res.sendFile(path.join(root, "index.html")));
 deadlineScheduler.start();
